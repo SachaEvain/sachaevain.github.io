@@ -1,0 +1,159 @@
+---
+title: "PureLLM : construire et servir un Transformer de bout en bout"
+description: "Un modèle de langage decoder-only implémenté en NumPy puis en PyTorch, puis exposé par une API d’inférence FastAPI."
+type: case-study
+locale: fr
+translationKey: purellm
+publishedAt: 2026-09-03
+readingMinutes: 11
+tags:
+  - "LLM"
+  - "Transformers"
+  - "NumPy"
+  - "PyTorch"
+  - "FastAPI"
+featured: true
+draft: false
+---
+
+import CodexVisualization from '../../../components/CodexVisualization.astro';
+
+## En bref
+
+| | |
+| --- | --- |
+| **Statut** | Prototype de recherche personnel avec API d'inférence |
+| **Rôle** | Conception, implémentation et expérimentation |
+| **Périmètre** | Tokenisation, architecture, entraînement, checkpoints, génération et serving |
+| **Stack** | Python, NumPy, PyTorch, FastAPI, Pydantic, TOML, uv |
+| **Code source** | [github.com/LimeSku/PureLLM](https://github.com/LimeSku/PureLLM) |
+
+PureLLM est un petit modèle de langage auto-régressif construit pour comprendre ce que les frameworks de haut niveau rendent habituellement invisible. Le même problème est abordé deux fois : une première implémentation en NumPy, où le forward pass et la rétropropagation sont écrits explicitement, puis une version PyTorch destinée à expérimenter avec des mécanismes plus proches des architectures modernes.
+
+L'objectif n'est pas de produire un foundation model ni de concurrencer une bibliothèque comme Transformers. Le projet privilégie un modèle assez petit pour rester inspectable, mais assez complet pour couvrir toute la chaîne, du texte brut jusqu'à la génération de nouveaux tokens.
+
+## Le problème : comprendre sans simplifier à l'excès
+
+Utiliser un modèle pré-entraîné derrière une API permet de livrer vite, mais ne donne qu'une vision partielle de son fonctionnement. À l'inverse, une démonstration réduite à quelques multiplications de matrices laisse souvent de côté les difficultés qui apparaissent dès que l'on veut réellement entraîner, sauvegarder et utiliser le modèle.
+
+Je voulais donc réunir deux objectifs dans un même projet :
+
+- rendre visibles les tenseurs, les gradients et les chemins résiduels d'un Transformer ;
+- conserver une boucle d'expérimentation réaliste avec configuration, validation, checkpoints et génération.
+
+Cette double contrainte a guidé la séparation entre les deux backends. NumPy sert à exposer les mécanismes. PyTorch prend le relais lorsque les primitives optimisées apportent de la fiabilité ou des performances sans masquer l'architecture.
+
+## Une architecture, deux niveaux d'abstraction
+
+### NumPy pour suivre chaque opération
+
+La première version implémente les briques essentielles sans autograd : embeddings, self-attention causale multi-têtes, normalisation, MLP, connexions résiduelles, projection vers le vocabulaire et entropie croisée. Le backward pass traverse ces composants dans l'ordre inverse et expose directement les gradients utilisés par les optimiseurs SGD et Adam.
+
+Cette implémentation n'est volontairement pas optimisée pour entraîner de grands modèles. Sa valeur est ailleurs : elle permet de vérifier les formes, d'observer la circulation du signal et de relier chaque équation à une opération concrète.
+
+### PyTorch pour expérimenter dans des conditions réalistes
+
+La seconde version conserve un Transformer decoder-only lisible tout en utilisant les primitives bas niveau de PyTorch. Elle ajoute notamment :
+
+- l'attention causale via `scaled_dot_product_attention` ;
+- les embeddings rotatifs RoPE ou, pour comparaison, des positions apprises ;
+- des blocs feed-forward SwiGLU ;
+- le partage optionnel des poids entre embeddings et projection de sortie ;
+- l'entraînement en précision `bf16` sur les appareils compatibles ;
+- la compilation du forward pass d'entraînement avec `torch.compile` ;
+- un cache KV pour éviter de recalculer tout le contexte à chaque token généré.
+
+Le profil TinyStories fourni décrit un modèle d'environ 11 millions de paramètres : 6 blocs, une dimension de 384, 6 têtes d'attention et un contexte de 256 tokens. Cette échelle reste adaptée à l'expérimentation locale tout en faisant apparaître les contraintes d'un vrai pipeline d'entraînement.
+
+## Le forward pass, étape par étape
+
+À partir d'une séquence d'identifiants, PureLLM construit les représentations de tokens, applique plusieurs blocs Transformer, normalise l'état caché final puis projette chaque position sur le vocabulaire. Pendant l'entraînement, les logits sont comparés au token suivant par entropie croisée.
+
+La visualisation ci-dessous permet de suivre ce chemin et d'inspecter l'effet des dimensions du modèle sur les tenseurs intermédiaires.
+
+<CodexVisualization
+  src="/visualizations/purellm-forward-pass.html"
+  title="Forward pass interactif de PureLLM"
+/>
+
+## Rendre les expériences reproductibles
+
+Le modèle seul ne suffit pas à reproduire une expérience. PureLLM décrit donc chaque entraînement dans une recette TOML qui rassemble les paramètres du modèle, des données et de l'optimisation. Le chargeur rejette les champs inconnus et valide les dimensions ou valeurs incohérentes avant de lancer un calcul coûteux.
+
+Le pipeline couvre ensuite :
+
+1. le chargement et la séparation des corpus d'entraînement et de validation ;
+2. la création d'un tokenizer caractère ou BPE, avec cache lié au contenu du corpus ;
+3. la construction des fenêtres de tokens et des DataLoaders ;
+4. l'entraînement avec AdamW, clipping des gradients, warmup linéaire et décroissance cosinus ;
+5. l'évaluation périodique sur la loss de validation ;
+6. la sauvegarde de `last.pt` et du meilleur checkpoint `best.pt` ;
+7. la reprise à partir de l'état du modèle, du tokenizer, de l'optimiseur, du scheduler et des générateurs aléatoires associés.
+
+Le runtime sélectionne automatiquement CUDA, Apple Silicon/MPS ou le CPU. Les journaux affichent la loss, la loss de validation, le learning rate, le temps par étape et le débit en tokens par seconde afin de rendre les comparaisons futures mesurables.
+
+## Passer du script au service d'inférence
+
+Une commande de génération prouve que le modèle fonctionne, mais elle ne constitue pas encore une interface utilisable par une application. J'ai donc ajouté une API FastAPI autour du même mécanisme de checkpoint et de génération.
+
+Le checkpoint est fourni par la variable d'environnement `PURELLM_CHECKPOINT`, chargé une seule fois pendant le démarrage de l'application et conservé en mémoire. Le service échoue immédiatement si le fichier est absent ou invalide, au lieu d'accepter du trafic avec un modèle indisponible. Le device est sélectionné au même moment entre CUDA, MPS et CPU.
+
+L'API reste volontairement réduite à deux endpoints :
+
+| Endpoint | Rôle |
+| --- | --- |
+| `GET /health` | Confirmer que le modèle est chargé et exposer le device ainsi que l'étape du checkpoint |
+| `POST /generate` | Générer une continuation à partir d'un prompt, d'une longueur maximale et d'une température |
+
+Le contrat d'entrée interdit les champs inconnus, les prompts vides ou composés uniquement d'espaces, les textes de plus de 8 192 caractères, les températures hors de l'intervalle autorisé et les générations supérieures à 512 tokens. Une requête valide retourne le texte complet, le nombre de tokens générés, la latence et le débit observé en tokens par seconde.
+
+```bash
+PURELLM_CHECKPOINT=runs/tinygpt-shakespeare/checkpoints/best.pt \
+  uv run uvicorn purellm.api:app
+
+curl http://localhost:8000/generate \
+  --header 'Content-Type: application/json' \
+  --data '{"prompt":"ROMEO:","max_new_tokens":64,"temperature":0.8}'
+```
+
+### Protéger le cache KV sous concurrence
+
+La génération modifie un cache KV porté par l'instance du modèle. Deux requêtes exécutées en parallèle pourraient donc mélanger leur état. Pour cette première version, un verrou sérialise les générations autour de l'encodage, de l'inférence et du calcul des métriques.
+
+Ce choix limite le débit, mais garantit un comportement correct avec une seule instance du modèle. Il rend aussi la limite d'architecture explicite : si la charge le justifie, l'évolution naturelle sera de répliquer le worker ou d'isoler le cache par requête, puis de mesurer le gain avant d'ajouter du batching.
+
+### Vérifier le contrat HTTP
+
+Un test d'intégration construit un checkpoint minimal, démarre l'application sur CPU avec `TestClient` et vérifie que le modèle n'est chargé qu'une fois. Il couvre également `/health`, une génération valide, le rejet d'une longueur excessive avec un statut 422 et la présence des deux routes dans le schéma OpenAPI. La documentation interactive est ainsi disponible automatiquement sur `/docs`.
+
+## Ce qui fonctionne aujourd'hui
+
+Le dépôt fournit des recettes pour un smoke test sur Tiny Shakespeare et une expérience plus ambitieuse sur TinyStories. Le pipeline implémente l'entraînement, la reprise depuis un checkpoint, la génération auto-régressive et son exposition par HTTP.
+
+Le résultat principal à ce stade est donc un socle expérimental complet et inspectable, pas une revendication de qualité linguistique. L'architecture moderne, la version NumPy, les outils d'entraînement et l'API vivent dans le même dépôt, avec une frontière explicite entre apprentissage des mécanismes, optimisation pratique et intégration applicative.
+
+## Limites actuelles
+
+Le projet reste un prototype de recherche. Plusieurs limites doivent être explicites :
+
+- aucun benchmark reproductible de qualité, vitesse ou mémoire n'est encore publié ;
+- la parité numérique entre les implémentations NumPy et PyTorch n'est pas couverte par une suite de tests ;
+- le cache KV privilégie encore une logique simple lorsque la fenêtre de contexte est pleine ;
+- le verrou global limite l'API à une génération simultanée par processus ;
+- l'API ne propose encore ni streaming, ni batching, ni authentification, ni limitation de débit ;
+- le dépôt ne propose ni entraînement distribué, ni quantification, ni fine-tuning conversationnel ;
+- le modèle et les corpus d'exemple sont trop petits pour évaluer des capacités générales.
+
+Ces absences empêchent volontairement de présenter PureLLM comme une solution prête pour la production. Elles définissent aussi la prochaine étape utile : remplacer les affirmations d'architecture par des expériences chiffrées.
+
+## Prochaines expériences
+
+La suite la plus informative consiste à construire un protocole commun aux deux backends : tests de gradients sur de petits tenseurs, comparaison des logits, suivi de la loss et mesures de débit à configuration fixe. Côté API, un test de charge devra mesurer la latence p50/p95, le débit et la mémoire avant de choisir entre réplication, cache isolé, streaming ou batching. Des ablations ciblées pourront ensuite isoler l'effet de RoPE, de SwiGLU, du partage des embeddings, de la précision mixte et du cache KV.
+
+L'objectif n'est pas d'empiler les fonctionnalités, mais de répondre à des questions précises avec des expériences reproductibles : qu'est-ce qui améliore réellement l'entraînement, qu'est-ce qui accélère l'inférence, et quel compromis chaque choix impose-t-il ?
+
+## Ce que j'en retiens
+
+Réimplémenter un Transformer montre que l'architecture n'est qu'une partie du système. La préparation des données, la validation de configuration, l'état des optimiseurs, les checkpoints, l'instrumentation et l'interface de serving déterminent autant la qualité d'une expérience que le modèle lui-même.
+
+PureLLM m'a également permis de fixer une frontière d'abstraction utile : écrire manuellement ce qui aide à comprendre, puis réutiliser une primitive optimisée dès qu'elle apporte une garantie concrète. C'est cette articulation entre compréhension du modèle et ingénierie du système que je souhaite continuer à documenter.

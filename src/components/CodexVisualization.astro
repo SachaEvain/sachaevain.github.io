@@ -1,0 +1,17 @@
+---
+interface Props {
+	src: string;
+	title: string;
+}
+
+const { src, title } = Astro.props;
+---
+
+<iframe
+	class="codex-visualization"
+	src={src}
+	title={title}
+	loading="lazy"
+	referrerpolicy="no-referrer"
+	sandbox="allow-scripts"
+></iframe>

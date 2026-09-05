@@ -1,0 +1,21 @@
+---
+import { copy, localizedPath, type Locale } from '../i18n';
+
+interface Props {
+	locale: Locale;
+}
+
+const { locale } = Astro.props;
+const text = copy[locale];
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="shell footer-inner">
+    <p>© {currentYear} {text.footer}</p>
+		<nav aria-label={text.contact}>
+			<a href={localizedPath(locale, '/contact/')}>{text.contact}</a>
+			<a href={localizedPath(locale, '/rss.xml')}>{text.rss}</a>
+		</nav>
+	</div>
+</footer>

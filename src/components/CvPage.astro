@@ -1,0 +1,270 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
+
+interface Props {
+	locale: Locale;
+}
+
+const { locale } = Astro.props;
+const text = copy[locale];
+const pdfPath = locale === 'fr' ? '/cv/sacha-evain-cv-fr.pdf' : '/cv/sacha-evain-cv-en.pdf';
+
+const cvByLocale = {
+	fr: {
+		updated: 'Mis à jour en septembre 2026',
+		summary:
+			'Ingénieur Big Data & Machine Learning, major de promotion en M2 (1er sur 204), avec une expérience en machine learning appliqué à la pharmacie industrielle chez Roquette Health & Pharma. Je recherche un CDI en Data Science, Machine Learning ou Data Engineering afin de concevoir et industrialiser des solutions fiables pour des environnements industriels et data-driven.',
+		experience: [
+			{
+				role: 'Alternant Data & Machine Learning',
+				organization: 'Roquette Health & Pharma',
+				location: 'Lestrem, France',
+				period: 'Sept. 2025 - août 2026',
+				highlights: [
+					'Conception de modèles prédictifs pour la compression directe : prédiction de défauts de production et estimation d’attributs qualité de comprimés.',
+					'Développement de pipelines de données expérimentales avec Airflow, Snowflake et Python pour l’entraînement et l’évaluation de modèles.',
+					'Déploiement et suivi d’expériences ML avec Azure ML et MLflow : versioning, traçabilité et orchestration des entraînements.',
+					'Automatisation de rapports scientifiques, réduisant le temps de production d’environ une journée à une minute ; développement d’un agent text-to-SQL et d’un système RAG avec citation des sources.',
+				],
+			},
+			{
+				role: 'Recherche en finance quantitative',
+				organization: 'Université de Modène',
+				location: 'Modène, Italie',
+				period: 'Mai 2025 - août 2025',
+				highlights: [
+					'Étude du greenium et analyse des relations entre indicateurs climatiques, données de marché, risque et valorisation d’actifs.',
+					'Développement et comparaison de modèles de machine learning et deep learning sur des données financières européennes.',
+				],
+			},
+			{
+				role: 'Analyste cybersécurité',
+				organization: 'Lenglet-Imprimeurs',
+				location: 'Raillencourt, France',
+				period: 'Juil. 2022 - août 2022',
+				highlights: [
+					'Analyse de l’infrastructure réseau industrielle et rédaction d’un plan de continuité d’activité.',
+				],
+			},
+		],
+		education: {
+			institution: 'Junia ISEN Lille',
+			degree: 'Diplôme d’ingénieur en Big Data & Intelligence Artificielle',
+			location: 'Lille, France',
+			period: '2021 - 2026',
+			highlights: [
+				'Major de promotion en M2 - 1er sur 204 ; machine learning, deep learning, analyse de données, algorithmes, métaheuristiques, Hadoop et Spark.',
+			],
+		},
+		skills: [
+			{
+				name: 'Machine learning',
+				details:
+					'Python, PyTorch, Keras, scikit-learn, LightGBM, XGBoost, deep learning, feature engineering, model evaluation, hyperparameter optimization, statistical modeling, forecasting, explainable AI, LLM fine-tuning, RAG, agents text-to-SQL',
+			},
+			{
+				name: 'Data engineering',
+				details:
+					'SQL, Snowflake, Hadoop, Spark, Polars, ETL/ELT, Airflow, Prefect, data quality, data preprocessing, scientific data analysis, data pipeline design',
+			},
+			{
+				name: 'MLOps & cloud',
+				details:
+					'Azure ML, MLflow, Weights & Biases, DVC, Docker, Git, Kubernetes, k3s, GitOps, model deployment, experiment tracking, model registry, reproducible ML, ML pipeline automation, Linux',
+			},
+			{ name: 'Programmation', details: 'Python, R, Rust, C/C++' },
+		],
+		projects: [
+			'HomeLab / infrastructure : cluster Kubernetes k3s auto-hébergé sur Proxmox, déploiements GitOps et administration de serveurs.',
+			'Compétitions data : Kaggle et CrunchDAO.',
+			'Cybersécurité : Top 500 sur Root-Me parmi environ 300 000 participants - 7 500 points.',
+		],
+		languages: [
+			{ name: 'Français', level: 'Langue maternelle' },
+			{ name: 'Anglais', level: 'C1 - TOEIC 885' },
+			{ name: 'Italien', level: 'B1' },
+		],
+	},
+	en: {
+		updated: 'Last updated in September 2026',
+		summary:
+			'Big Data and Artificial Intelligence engineer, ranked 1st out of 204 students in my Master’s year, with hands-on experience building data pipelines, predictive models, internal data tooling, and AI-enabled systems in an industrial environment. Seeking a permanent role to deliver reliable data and machine learning solutions with measurable business value.',
+		experience: [
+			{
+				role: 'Data & Machine Learning Engineer - Apprenticeship',
+				organization: 'Roquette Health & Pharma',
+				location: 'Lestrem, France',
+				period: 'Sept. 2025 - Aug. 2026',
+				highlights: [
+					'Designed predictive models for direct compression manufacturing, including production-defect prediction and tablet-quality attribute estimation.',
+					'Built experimental-data pipelines with Airflow, Snowflake, and Python to structure data for model training and evaluation.',
+					'Deployed and tracked ML experiments with Azure ML and MLflow, covering model versioning, experiment traceability, and training orchestration.',
+					'Automated scientific report generation, reducing preparation time from approximately one day to one minute.',
+					'Built a text-to-SQL agent on Snowflake and a retrieval-augmented generation system over internal technical documentation with source citations.',
+				],
+			},
+			{
+				role: 'Quantitative Finance Research Assistant',
+				organization: 'University of Modena and Reggio Emilia',
+				location: 'Modena, Italy',
+				period: 'May 2025 - Aug. 2025',
+				highlights: [
+					'Studied the greenium and analyzed relationships between climate indicators, market data, risk, and asset valuation.',
+					'Developed and compared machine learning and deep learning models on European financial data.',
+				],
+			},
+			{
+				role: 'Cybersecurity Analyst',
+				organization: 'Lenglet-Imprimeurs',
+				location: 'Raillencourt, France',
+				period: 'July 2022 - Aug. 2022',
+				highlights: [
+					'Analyzed an industrial network infrastructure and drafted a business continuity plan to improve operational resilience.',
+				],
+			},
+		],
+		education: {
+			institution: 'Junia ISEN Lille',
+			degree: 'Engineering degree in Big Data & Artificial Intelligence',
+			location: 'Lille, France',
+			period: '2021 - 2026',
+			highlights: [
+				'Ranked 1st out of 204 students in the Master’s year; coursework included machine learning, deep learning, data analysis, algorithms, metaheuristics, Hadoop, and Spark.',
+			],
+		},
+		skills: [
+			{
+				name: 'Data & ML',
+				details:
+					'Python, SQL, PyTorch, Keras, scikit-learn, LightGBM, XGBoost, deep learning, feature engineering, model evaluation, hyperparameter optimization, statistical modeling, forecasting, explainable AI, LLM fine-tuning',
+			},
+			{
+				name: 'Data platforms',
+				details:
+					'Snowflake, Hadoop, Spark, Polars, ETL/ELT, Airflow, Prefect, data quality, data preprocessing, scientific data analysis, data pipeline design',
+			},
+			{
+				name: 'MLOps & infrastructure',
+				details:
+					'Azure ML, MLflow, Weights & Biases, DVC, Docker, Git, Kubernetes, k3s, GitOps, model deployment, experiment tracking, model registry, reproducible ML, ML pipeline automation, Linux',
+			},
+			{
+				name: 'AI systems',
+				details: 'LLMs, RAG, text-to-SQL agents, source-grounded generation',
+			},
+		],
+		projects: [
+			'End-to-end design, training, and fine-tuning of LLMs.',
+			'HomeLab infrastructure: self-hosted k3s Kubernetes cluster on Proxmox, GitOps deployments, and server administration.',
+			'Data competitions: Kaggle and CrunchDAO.',
+			'Cybersecurity: Top 500 on Root-Me among approximately 300,000 participants - 7,500 points.',
+		],
+		languages: [
+			{ name: 'English', level: 'C1 - TOEIC 885' },
+			{ name: 'French', level: 'Native' },
+			{ name: 'Italian', level: 'B1' },
+		],
+	},
+} as const;
+
+const cv = cvByLocale[locale];
+---
+
+<BaseLayout
+	locale={locale}
+	title={text.cvTitle}
+	description={text.cvDescription}
+	alternatePath={localizedPath(otherLocale(locale), '/cv/')}
+	pageClass="cv-page"
+>
+	<header class="page-header shell cv-header">
+		<div>
+			<p class="eyebrow">{text.cv}</p>
+			<h1>{text.cvTitle}</h1>
+			<p class="cv-intro">{text.cvDescription}</p>
+			<p class="cv-updated"><time datetime="2026-09">{cv.updated}</time></p>
+		</div>
+		<a class="button" href={pdfPath} download>{text.downloadCv}</a>
+	</header>
+
+	<div class="cv shell">
+		<section class="cv-section">
+			<h2>{text.cvSummary}</h2>
+			<div class="cv-section__content"><p class="cv-summary">{cv.summary}</p></div>
+		</section>
+
+		<section class="cv-section">
+			<h2>{text.cvExperience}</h2>
+			<div class="cv-section__content">
+				{
+					cv.experience.map((experience) => (
+						<article class="cv-entry">
+							<header>
+								<div>
+									<h3>{experience.role}</h3>
+									<p>{experience.organization} · {experience.location}</p>
+								</div>
+								<p class="cv-period">{experience.period}</p>
+							</header>
+							<ul class="cv-list">
+								{experience.highlights.map((highlight) => <li>{highlight}</li>)}
+							</ul>
+						</article>
+					))
+				}
+			</div>
+		</section>
+
+		<section class="cv-section">
+			<h2>{text.cvEducation}</h2>
+			<div class="cv-section__content">
+				<article class="cv-entry">
+					<header>
+						<div>
+							<h3>{cv.education.institution}</h3>
+							<p>{cv.education.degree} · {cv.education.location}</p>
+						</div>
+						<p class="cv-period">{cv.education.period}</p>
+					</header>
+					<ul class="cv-list">
+						{cv.education.highlights.map((highlight) => <li>{highlight}</li>)}
+					</ul>
+				</article>
+			</div>
+		</section>
+
+		<section class="cv-section">
+			<h2>{text.cvSkills}</h2>
+			<div class="cv-section__content">
+				<dl class="cv-details">
+					{
+						cv.skills.map((skill) => (
+							<div><dt>{skill.name}</dt><dd>{skill.details}</dd></div>
+						))
+					}
+				</dl>
+			</div>
+		</section>
+
+		<section class="cv-section">
+			<h2>{text.cvProjects}</h2>
+			<div class="cv-section__content">
+				<ul class="cv-list cv-list--flush">{cv.projects.map((project) => <li>{project}</li>)}</ul>
+			</div>
+		</section>
+
+		<section class="cv-section">
+			<h2>{text.cvLanguages}</h2>
+			<div class="cv-section__content">
+				<dl class="cv-details cv-details--compact">
+					{
+						cv.languages.map((language) => (
+							<div><dt>{language.name}</dt><dd>{language.level}</dd></div>
+						))
+					}
+				</dl>
+			</div>
+		</section>
+	</div>
+</BaseLayout>

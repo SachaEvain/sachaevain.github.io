@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { copy, localizedPath } from '../i18n';
+
+const text = copy.fr;
+---
+
+<BaseLayout
+	locale="fr"
+	title={text.notFoundTitle}
+	description={text.notFoundDescription}
+	alternatePath={localizedPath('en')}
+>
+	<section class="not-found shell">
+		<p class="eyebrow">404</p>
+		<h1>{text.notFoundTitle}</h1>
+		<p>{text.notFoundDescription}</p>
+		<div class="button-row">
+			<a class="button" href={localizedPath('fr')}>{text.backHome}</a>
+			<a class="button button--secondary" href={localizedPath('en')}>{copy.en.backHome}</a>
+		</div>
+	</section>
+</BaseLayout>

@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CaseStudyCard from './CaseStudyCard.astro';
+import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
+import { getLocalizedPosts } from '../lib/posts';
+
+interface Props {
+	locale: Locale;
+}
+
+const { locale } = Astro.props;
+const text = copy[locale];
+const caseStudies = (await getLocalizedPosts(locale)).filter(
+	(post) => post.data.type === 'case-study',
+);
+---
+
+<BaseLayout
+	locale={locale}
+	title={text.portfolioTitle}
+	description={text.portfolioDescription}
+	alternatePath={localizedPath(otherLocale(locale), '/portfolio/')}
+>
+	<header class="page-header shell">
+		<p class="eyebrow">{text.portfolio}</p>
+		<h1>{text.portfolioTitle}</h1>
+		<p>{text.portfolioDescription}</p>
+	</header>
+
+	<section class="section shell" aria-label={text.portfolioTitle}>
+		<div class="portfolio-grid">
+			{
+				caseStudies.map((post, index) => (
+					<CaseStudyCard post={post} locale={locale} featured={index === 0} />
+				))
+			}
+		</div>
+	</section>
+</BaseLayout>

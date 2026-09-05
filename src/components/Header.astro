@@ -1,0 +1,80 @@
+---
+import { copy, localizedPath, type Locale } from '../i18n';
+
+interface Props {
+	locale: Locale;
+	alternatePath: string;
+}
+
+const { locale, alternatePath } = Astro.props;
+const text = copy[locale];
+const currentPath = Astro.url.pathname;
+const links = [
+	{ label: text.portfolio, href: localizedPath(locale, '/portfolio/') },
+	{ label: text.blog, href: localizedPath(locale, '/blog/') },
+	{ label: text.cv, href: localizedPath(locale, '/cv/') },
+	{ label: text.contact, href: localizedPath(locale, '/contact/') },
+];
+
+const isActive = (href: string): boolean =>
+	currentPath === href || (href.includes('/blog/') && currentPath.startsWith(href));
+---
+
+<header class="site-header">
+	<div class="shell header-inner">
+		<a class="brand" href={localizedPath(locale)}>{text.siteName}</a>
+
+		<nav class="main-nav" aria-label={text.navigation}>
+			{
+				links.map(({ label, href }) => (
+					<a href={href} aria-current={isActive(href) ? 'page' : undefined}>
+						{label}
+					</a>
+				))
+			}
+		</nav>
+
+		<div class="header-controls">
+			<div class="language-switch" aria-label={text.language}>
+				{
+					locale === 'fr' ? (
+						<>
+							<span aria-current="page">FR</span>
+							<span aria-hidden="true">/</span>
+							<a href={alternatePath} lang="en" hreflang="en">EN</a>
+						</>
+					) : (
+						<>
+							<a href={alternatePath} lang="fr" hreflang="fr">FR</a>
+							<span aria-hidden="true">/</span>
+							<span aria-current="page">EN</span>
+						</>
+					)
+				}
+			</div>
+
+			<select class="theme-picker" data-theme-select aria-label={text.theme}>
+				<option value="system">{text.themeSystem}</option>
+				<option value="light">{text.themeLight}</option>
+				<option value="dark">{text.themeDark}</option>
+			</select>
+		</div>
+	</div>
+</header>
+
+<script>
+	const themeSelect = document.querySelector('[data-theme-select]');
+
+	if (themeSelect instanceof HTMLSelectElement) {
+		themeSelect.value = document.documentElement.dataset.theme ?? 'system';
+		themeSelect.addEventListener('change', () => {
+			document.documentElement.dataset.theme = themeSelect.value;
+
+			if (themeSelect.value === 'system') {
+				localStorage.removeItem('theme');
+			} else {
+				localStorage.setItem('theme', themeSelect.value);
+			}
+		});
+	}
+</script>

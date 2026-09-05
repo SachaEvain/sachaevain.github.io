@@ -1,0 +1,18 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import ArticlePage from '../../../components/ArticlePage.astro';
+import { getLocalizedPosts, postSlug } from '../../../lib/posts';
+
+export async function getStaticPaths() {
+	const posts = await getLocalizedPosts('en');
+	return posts.map((post) => ({ params: { slug: postSlug(post) }, props: { post } }));
+}
+
+interface Props {
+	post: CollectionEntry<'posts'>;
+}
+
+const { post } = Astro.props;
+---
+
+<ArticlePage locale="en" post={post} />

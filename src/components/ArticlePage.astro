@@ -1,0 +1,116 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { copy, type Locale } from '../i18n';
+import {
+	getLocalizedPosts,
+	getPosts,
+	getTranslation,
+	postPath,
+	type Post,
+} from '../lib/posts';
+
+interface Props {
+	locale: Locale;
+	post: Post;
+}
+
+const { locale, post } = Astro.props;
+const text = copy[locale];
+const posts = await getPosts();
+const localizedPosts = await getLocalizedPosts(locale);
+const translation = getTranslation(posts, post);
+const { Content, headings } = await render(post);
+const articleHeadings = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+const index = localizedPosts.findIndex((candidate) => candidate.id === post.id);
+const newerPost = index > 0 ? localizedPosts[index - 1] : undefined;
+const olderPost = index < localizedPosts.length - 1 ? localizedPosts[index + 1] : undefined;
+const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+const publishedAt = post.data.publishedAt.toLocaleDateString(dateLocale, {
+	year: 'numeric',
+	month: 'long',
+	day: 'numeric',
+});
+---
+
+<BaseLayout
+	locale={locale}
+	title={post.data.title}
+	description={post.data.description}
+	alternatePath={postPath(translation)}
+	pageClass="article-page"
+	ogType="article"
+	publishedAt={post.data.publishedAt}
+	updatedAt={post.data.updatedAt}
+>
+	<article class="article shell">
+		<header class="article-header">
+			<p class="eyebrow">{post.data.type === 'case-study' ? text.caseStudy : text.article}</p>
+			<h1>{post.data.title}</h1>
+			<p class="article-summary">{post.data.description}</p>
+			<div class="article-meta">
+				<time datetime={post.data.publishedAt.toISOString()}>{publishedAt}</time>
+				<span>{post.data.readingMinutes} {text.minutes}</span>
+			</div>
+			<ul class="tag-list" aria-label={text.tags}>
+				{post.data.tags.map((tag) => <li>{tag}</li>)}
+			</ul>
+		</header>
+
+		{
+			articleHeadings.length > 0 && (
+				<details class="toc toc--mobile">
+					<summary>{text.tableOfContents}</summary>
+					<nav>
+						{articleHeadings.map((heading) => (
+							<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
+								{heading.text}
+							</a>
+						))}
+					</nav>
+				</details>
+			)
+		}
+
+		<div class="article-grid">
+			{
+				articleHeadings.length > 0 && (
+					<aside class="toc toc--desktop">
+						<p>{text.tableOfContents}</p>
+						<nav>
+							{articleHeadings.map((heading) => (
+								<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
+									{heading.text}
+								</a>
+							))}
+						</nav>
+					</aside>
+				)
+			}
+			<div class="prose">
+				<Content />
+			</div>
+		</div>
+
+		<nav class="article-pagination" aria-label={text.blog}>
+			{
+				olderPost ? (
+					<a href={postPath(olderPost)}>
+						<span>{text.previousArticle}</span>
+						<strong>{olderPost.data.title}</strong>
+					</a>
+				) : (
+					<span />
+				)
+			}
+			{
+				newerPost && (
+					<a class="article-pagination__next" href={postPath(newerPost)}>
+						<span>{text.nextArticle}</span>
+						<strong>{newerPost.data.title}</strong>
+					</a>
+				)
+			}
+		</nav>
+	</article>
+</BaseLayout>

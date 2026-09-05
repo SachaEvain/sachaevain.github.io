@@ -1,0 +1,32 @@
+---
+import { copy, type Locale } from '../i18n';
+import { postPath, type Post } from '../lib/posts';
+
+interface Props {
+	post: Post;
+	locale: Locale;
+	featured?: boolean;
+}
+
+const { post, locale, featured = false } = Astro.props;
+const text = copy[locale];
+---
+
+<article class:list={['case-card', { 'case-card--featured': featured }]}>
+	<div class="case-card__visual" aria-hidden="true">
+		<span>
+			{featured
+				? `[FEATURED_PROJECT_VISUAL_${locale.toUpperCase()}]`
+				: `[PROJECT_VISUAL_${locale.toUpperCase()}]`}
+		</span>
+	</div>
+	<div class="case-card__body">
+		<p class="eyebrow">{text.caseStudy}</p>
+		<h3><a href={postPath(post)}>{post.data.title}</a></h3>
+		<p>{post.data.description}</p>
+		<ul class="tag-list" aria-label={text.tags}>
+			{post.data.tags.map((tag) => <li>{tag}</li>)}
+		</ul>
+		<a class="text-link" href={postPath(post)}>{text.readCaseStudy}<span aria-hidden="true"> →</span></a>
+	</div>
+</article>

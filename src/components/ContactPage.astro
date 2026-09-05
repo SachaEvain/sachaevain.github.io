@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
+
+interface Props {
+	locale: Locale;
+}
+
+const { locale } = Astro.props;
+const text = copy[locale];
+---
+
+<BaseLayout
+	locale={locale}
+	title={text.contactTitle}
+	description={text.contactDescription}
+	alternatePath={localizedPath(otherLocale(locale), '/contact/')}
+>
+	<header class="page-header shell">
+		<p class="eyebrow">{text.contact}</p>
+		<h1>{text.contactTitle}</h1>
+		<p>{text.contactDescription}</p>
+	</header>
+
+	<section class="contact-links shell" aria-label={text.contactTitle}>
+		<div>
+			<span>{text.emailLabel}</span>
+			<strong><a href={`mailto:${text.contactEmail}`}>{text.contactEmail}</a></strong>
+		</div>
+		<div>
+			<span>{text.githubLabel}</span>
+			<strong><a href={text.contactGithub}>{text.contactGithub}</a></strong>
+		</div>
+		<div>
+			<span>{text.linkedinLabel}</span>
+			<strong><a href={text.contactLinkedin}>{text.contactLinkedin}</a></strong>
+		</div>
+	</section>
+</BaseLayout>
