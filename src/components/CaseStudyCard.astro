@@ -1,6 +1,7 @@
 ---
 import { copy, type Locale } from '../i18n';
 import { postPath, type Post } from '../lib/posts';
+import PostVisual from './PostVisual.astro';
 
 interface Props {
 	post: Post;
@@ -10,23 +11,31 @@ interface Props {
 
 const { post, locale, featured = false } = Astro.props;
 const text = copy[locale];
+const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+const href = postPath(post);
 ---
 
-<article class:list={['case-card', { 'case-card--featured': featured }]}>
-	<div class="case-card__visual" aria-hidden="true">
-		<span>
-			{featured
-				? `[FEATURED_PROJECT_VISUAL_${locale.toUpperCase()}]`
-				: `[PROJECT_VISUAL_${locale.toUpperCase()}]`}
-		</span>
-	</div>
-	<div class="case-card__body">
+<article class:list={['editorial-card', { 'editorial-card--featured': featured }]}>
+	<div class="editorial-card__body">
 		<p class="eyebrow">{text.caseStudy}</p>
-		<h3><a href={postPath(post)}>{post.data.title}</a></h3>
+		<h3><a href={href}>{post.data.title}</a></h3>
 		<p>{post.data.description}</p>
 		<ul class="tag-list" aria-label={text.tags}>
 			{post.data.tags.map((tag) => <li>{tag}</li>)}
 		</ul>
-		<a class="text-link" href={postPath(post)}>{text.readCaseStudy}<span aria-hidden="true"> →</span></a>
 	</div>
+	<PostVisual post={post} featured={featured} />
+	<footer class="editorial-card__meta">
+		<time datetime={post.data.publishedAt.toISOString()}>
+			{post.data.publishedAt.toLocaleDateString(dateLocale, {
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric',
+			})}
+		</time>
+		<span>{post.data.readingMinutes} {text.minutes}</span>
+		<a href={href} aria-label={`${text.readCaseStudy}: ${post.data.title}`}>
+			<span class="pixel-arrow" aria-hidden="true"></span>
+		</a>
+	</footer>
 </article>

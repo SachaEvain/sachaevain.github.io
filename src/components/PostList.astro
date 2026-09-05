@@ -1,6 +1,7 @@
 ---
 import { copy, type Locale } from '../i18n';
 import { postPath, type Post } from '../lib/posts';
+import PostVisual from './PostVisual.astro';
 
 interface Props {
 	posts: Post[];
@@ -14,9 +15,22 @@ const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
 <div class="post-list">
 	{
-		posts.map((post) => (
-			<article class="post-row">
-				<div class="post-row__meta">
+		posts.map((post, index) => {
+			const featured = index === 0;
+			const href = postPath(post);
+			const action = post.data.type === 'case-study' ? text.readCaseStudy : text.readArticle;
+
+			return (
+			<article class:list={['editorial-card', { 'editorial-card--featured': featured }]}>
+				<div class="editorial-card__body">
+					<p class="eyebrow">
+						{post.data.type === 'case-study' ? text.caseStudy : text.article}
+					</p>
+					<h3><a href={href}>{post.data.title}</a></h3>
+					<p>{post.data.description}</p>
+				</div>
+				<PostVisual post={post} featured={featured} />
+				<footer class="editorial-card__meta">
 					<time datetime={post.data.publishedAt.toISOString()}>
 						{post.data.publishedAt.toLocaleDateString(dateLocale, {
 							year: 'numeric',
@@ -24,12 +38,13 @@ const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 							day: 'numeric',
 						})}
 					</time>
-					<span>{post.data.type === 'case-study' ? text.caseStudy : text.article}</span>
-				</div>
-				<h3><a href={postPath(post)}>{post.data.title}</a></h3>
-				<p>{post.data.description}</p>
-				<span class="post-row__time">{post.data.readingMinutes} {text.minutes}</span>
+					<span>{post.data.readingMinutes} {text.minutes}</span>
+					<a href={href} aria-label={`${action}: ${post.data.title}`}>
+						<span class="pixel-arrow" aria-hidden="true"></span>
+					</a>
+				</footer>
 			</article>
-		))
+			);
+		})
 	}
 </div>

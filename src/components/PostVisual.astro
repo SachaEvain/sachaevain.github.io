@@ -1,0 +1,35 @@
+---
+import { Image } from 'astro:assets';
+import type { Post } from '../lib/posts';
+
+interface Props {
+	post: Post;
+	featured?: boolean;
+}
+
+const { post, featured = false } = Astro.props;
+const visualLabel = post.data.type === 'case-study' ? 'ML / CASE' : 'ML / NOTE';
+const visualName = post.data.translationKey.replaceAll('-', ' ').toUpperCase();
+---
+
+<div class="editorial-card__visual" aria-hidden="true">
+	{
+		post.data.cover ? (
+			<Image src={post.data.cover} alt="" loading={featured ? 'eager' : 'lazy'} />
+		) : post.data.visualization ? (
+			<iframe
+				src={post.data.visualization}
+				title=""
+				tabindex="-1"
+				loading={featured ? 'eager' : 'lazy'}
+				referrerpolicy="no-referrer"
+				sandbox="allow-scripts"
+			></iframe>
+		) : (
+			<div class="editorial-card__fallback">
+				<span>{visualLabel}</span>
+				<strong>{visualName}</strong>
+			</div>
+		)
+	}
+</div>
