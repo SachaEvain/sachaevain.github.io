@@ -21,29 +21,35 @@ const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 			const action = post.data.type === 'case-study' ? text.readCaseStudy : text.readArticle;
 
 			return (
-			<article class:list={['editorial-card', { 'editorial-card--featured': featured }]}>
-				<div class="editorial-card__body">
-					<p class="eyebrow">
-						{post.data.type === 'case-study' ? text.caseStudy : text.article}
-					</p>
-					<h3><a href={href}>{post.data.title}</a></h3>
-					<p>{post.data.description}</p>
-				</div>
-				<PostVisual post={post} featured={featured} />
-				<footer class="editorial-card__meta">
-					<time datetime={post.data.publishedAt.toISOString()}>
-						{post.data.publishedAt.toLocaleDateString(dateLocale, {
-							year: 'numeric',
-							month: 'short',
-							day: 'numeric',
-						})}
-					</time>
-					<span>{post.data.readingMinutes} {text.minutes}</span>
-					<a href={href} aria-label={`${action}: ${post.data.title}`}>
-						<span class="pixel-arrow" aria-hidden="true"></span>
-					</a>
-				</footer>
-			</article>
+			<div
+				class:list={['editorial-grid__cell', { 'editorial-grid__cell--featured': featured }]}
+				data-post-card
+				data-post-type={post.data.type}
+			>
+				<article class:list={['editorial-card', { 'editorial-card--featured': featured }]}>
+					<div class="editorial-card__body">
+						<p class="eyebrow">
+							{post.data.type === 'case-study' ? text.caseStudy : text.article}
+						</p>
+						<h3><a href={href}>{post.data.title}</a></h3>
+						<p>{post.data.description}</p>
+					</div>
+					<PostVisual post={post} featured={featured} />
+					<footer class="editorial-card__meta">
+						<time datetime={post.data.publishedAt.toISOString()}>
+							{post.data.publishedAt.toLocaleDateString(dateLocale, {
+								year: 'numeric',
+								month: 'short',
+								day: 'numeric',
+							})}
+						</time>
+						<span>{post.data.readingMinutes} {text.minutes}</span>
+						<a href={href} aria-label={`${action}: ${post.data.title}`}>
+							<span class="pixel-arrow" aria-hidden="true"></span>
+						</a>
+					</footer>
+				</article>
+			</div>
 			);
 		})
 	}

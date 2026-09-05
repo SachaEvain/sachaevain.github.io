@@ -53,28 +53,49 @@ const isActive = (href: string): boolean =>
 				}
 			</div>
 
-			<select class="theme-picker" data-theme-select aria-label={text.theme}>
-				<option value="system">{text.themeSystem}</option>
-				<option value="light">{text.themeLight}</option>
-				<option value="dark">{text.themeDark}</option>
-			</select>
+			<div class="theme-switch" role="group" aria-label={text.theme}>
+				<button type="button" data-theme-value="system" aria-label={text.themeSystem} title={text.themeSystem}>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<rect x="3" y="4" width="18" height="13" rx="1"></rect>
+						<path d="M8 21h8M12 17v4"></path>
+					</svg>
+				</button>
+				<button type="button" data-theme-value="light" aria-label={text.themeLight} title={text.themeLight}>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<circle cx="12" cy="12" r="4"></circle>
+						<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+					</svg>
+				</button>
+				<button type="button" data-theme-value="dark" aria-label={text.themeDark} title={text.themeDark}>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M20.5 14.3A8.5 8.5 0 1 1 9.7 3.5a7 7 0 0 0 10.8 10.8Z"></path>
+					</svg>
+				</button>
+			</div>
 		</div>
 	</div>
 </header>
 
 <script>
-	const themeSelect = document.querySelector('[data-theme-select]');
+	const themeButtons = document.querySelectorAll('[data-theme-value]');
+	const activeTheme = document.documentElement.dataset.theme ?? 'system';
 
-	if (themeSelect instanceof HTMLSelectElement) {
-		themeSelect.value = document.documentElement.dataset.theme ?? 'system';
-		themeSelect.addEventListener('change', () => {
-			document.documentElement.dataset.theme = themeSelect.value;
+	themeButtons.forEach((button) => {
+		if (!(button instanceof HTMLButtonElement)) return;
 
-			if (themeSelect.value === 'system') {
+		button.setAttribute('aria-pressed', String(button.dataset.themeValue === activeTheme));
+		button.addEventListener('click', () => {
+			const theme = button.dataset.themeValue ?? 'system';
+			document.documentElement.dataset.theme = theme;
+			themeButtons.forEach((item) =>
+				item.setAttribute('aria-pressed', String(item === button)),
+			);
+
+			if (theme === 'system') {
 				localStorage.removeItem('theme');
 			} else {
-				localStorage.setItem('theme', themeSelect.value);
+				localStorage.setItem('theme', theme);
 			}
 		});
-	}
+	});
 </script>

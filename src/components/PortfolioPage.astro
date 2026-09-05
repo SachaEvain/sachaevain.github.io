@@ -27,11 +27,13 @@ const caseStudies = (await getLocalizedPosts(locale)).filter(
 		<p>{text.portfolioDescription}</p>
 	</header>
 
-	<section class="section shell" aria-label={text.portfolioTitle}>
+	<section class="section" aria-label={text.portfolioTitle}>
 		<div class="portfolio-grid">
 			{
 				caseStudies.map((post, index) => (
-					<CaseStudyCard post={post} locale={locale} featured={index === 0} />
+					<div class:list={['editorial-grid__cell', { 'editorial-grid__cell--featured': index === 0 }]}>
+						<CaseStudyCard post={post} locale={locale} featured={index === 0} />
+					</div>
 				))
 			}
 		</div>

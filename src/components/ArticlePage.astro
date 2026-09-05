@@ -1,7 +1,8 @@
 ---
+import { Image } from 'astro:assets';
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { copy, type Locale } from '../i18n';
+import { copy, localizedPath, type Locale } from '../i18n';
 import {
 	getLocalizedPosts,
 	getPosts,
@@ -31,6 +32,7 @@ const publishedAt = post.data.publishedAt.toLocaleDateString(dateLocale, {
 	month: 'long',
 	day: 'numeric',
 });
+const heroCover = post.data.heroCover ?? post.data.cover;
 ---
 
 <BaseLayout
@@ -43,40 +45,75 @@ const publishedAt = post.data.publishedAt.toLocaleDateString(dateLocale, {
 	publishedAt={post.data.publishedAt}
 	updatedAt={post.data.updatedAt}
 >
-	<article class="article shell">
-		<header class="article-header">
-			<p class="eyebrow">{post.data.type === 'case-study' ? text.caseStudy : text.article}</p>
-			<h1>{post.data.title}</h1>
-			<p class="article-summary">{post.data.description}</p>
-			<div class="article-meta">
-				<time datetime={post.data.publishedAt.toISOString()}>{publishedAt}</time>
-				<span>{post.data.readingMinutes} {text.minutes}</span>
-			</div>
-			<ul class="tag-list" aria-label={text.tags}>
-				{post.data.tags.map((tag) => <li>{tag}</li>)}
-			</ul>
-		</header>
-
+	<article class:list={['article', { 'article--with-cover': heroCover }]}>
 		{
-			articleHeadings.length > 0 && (
-				<details class="toc toc--mobile">
-					<summary>{text.tableOfContents}</summary>
-					<nav>
-						{articleHeadings.map((heading) => (
-							<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
-								{heading.text}
+			heroCover ? (
+				<header class="article-hero">
+					<Image
+						class="article-hero__image"
+						src={heroCover}
+						alt=""
+						widths={[1024, 1536, 2048]}
+						sizes="100vw"
+						loading="eager"
+					/>
+					<div class="article-hero__content shell">
+						<div class="article-hero__heading">
+							<p class="eyebrow">{post.data.type === 'case-study' ? text.caseStudy : text.article}</p>
+							<h1>{post.data.title}</h1>
+							<div class="article-meta">
+								<time datetime={post.data.publishedAt.toISOString()}>{publishedAt}</time>
+								<span>{post.data.readingMinutes} {text.minutes}</span>
+							</div>
+						</div>
+						<div class="article-hero__actions">
+							<a class="article-hero__button" href={localizedPath(locale, '/blog/')}>
+								<span aria-hidden="true">←</span> {text.backToBlog}
 							</a>
-						))}
-					</nav>
-				</details>
+							<button
+								class="article-hero__button"
+								type="button"
+								data-share-article
+								data-share-copied={text.linkCopied}
+							>
+								<span data-share-label aria-live="polite">{text.shareArticle}</span>
+								<span aria-hidden="true">⧉</span>
+							</button>
+						</div>
+					</div>
+				</header>
+			) : (
+				<header class="article-header shell">
+					<p class="eyebrow">{post.data.type === 'case-study' ? text.caseStudy : text.article}</p>
+					<h1>{post.data.title}</h1>
+					<p class="article-summary">{post.data.description}</p>
+					<div class="article-meta">
+						<time datetime={post.data.publishedAt.toISOString()}>{publishedAt}</time>
+						<span>{post.data.readingMinutes} {text.minutes}</span>
+					</div>
+					<ul class="tag-list" aria-label={text.tags}>
+						{post.data.tags.map((tag) => <li>{tag}</li>)}
+					</ul>
+				</header>
 			)
 		}
 
-		<div class="article-grid">
+		<div class:list={['article-body', 'shell', { 'article-body--with-cover': heroCover }]}>
+			{
+				heroCover && (
+					<div class="article-intro">
+						<p class="article-summary">{post.data.description}</p>
+						<ul class="tag-list" aria-label={text.tags}>
+							{post.data.tags.map((tag) => <li>{tag}</li>)}
+						</ul>
+					</div>
+				)
+			}
+
 			{
 				articleHeadings.length > 0 && (
-					<aside class="toc toc--desktop">
-						<p>{text.tableOfContents}</p>
+					<details class="toc toc--mobile">
+						<summary>{text.tableOfContents}</summary>
 						<nav>
 							{articleHeadings.map((heading) => (
 								<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
@@ -84,33 +121,69 @@ const publishedAt = post.data.publishedAt.toLocaleDateString(dateLocale, {
 								</a>
 							))}
 						</nav>
-					</aside>
+					</details>
 				)
 			}
-			<div class="prose">
-				<Content />
-			</div>
-		</div>
 
-		<nav class="article-pagination" aria-label={text.blog}>
-			{
-				olderPost ? (
-					<a href={postPath(olderPost)}>
-						<span>{text.previousArticle}</span>
-						<strong>{olderPost.data.title}</strong>
-					</a>
-				) : (
-					<span />
-				)
-			}
-			{
-				newerPost && (
-					<a class="article-pagination__next" href={postPath(newerPost)}>
-						<span>{text.nextArticle}</span>
-						<strong>{newerPost.data.title}</strong>
-					</a>
-				)
-			}
-		</nav>
+			<div class="article-grid">
+				{
+					articleHeadings.length > 0 && (
+						<aside class="toc toc--desktop">
+							<p>{text.tableOfContents}</p>
+							<nav>
+								{articleHeadings.map((heading) => (
+									<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
+										{heading.text}
+									</a>
+								))}
+							</nav>
+						</aside>
+					)
+				}
+				<div class="prose">
+					<Content />
+				</div>
+			</div>
+
+			<nav class="article-pagination" aria-label={text.blog}>
+				{
+					olderPost ? (
+						<a href={postPath(olderPost)}>
+							<span>{text.previousArticle}</span>
+							<strong>{olderPost.data.title}</strong>
+						</a>
+					) : (
+						<span />
+					)
+				}
+				{
+					newerPost && (
+						<a class="article-pagination__next" href={postPath(newerPost)}>
+							<span>{text.nextArticle}</span>
+							<strong>{newerPost.data.title}</strong>
+						</a>
+					)
+				}
+			</nav>
+		</div>
 	</article>
 </BaseLayout>
+
+<script>
+	const shareButton = document.querySelector<HTMLButtonElement>('[data-share-article]');
+
+	shareButton?.addEventListener('click', async () => {
+		try {
+			if (navigator.share) {
+				await navigator.share({ title: document.title, url: window.location.href });
+				return;
+			}
+
+			await navigator.clipboard.writeText(window.location.href);
+			const label = shareButton.querySelector('[data-share-label]');
+			if (label) label.textContent = shareButton.dataset.shareCopied ?? label.textContent;
+		} catch (error) {
+			if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+		}
+	});
+</script>

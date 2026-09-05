@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import CaseStudyCard from './CaseStudyCard.astro';
+import HomeSystemVisual from './HomeSystemVisual.astro';
 import PostList from './PostList.astro';
 import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
 import { getLocalizedPosts } from '../lib/posts';
@@ -26,15 +27,16 @@ const alternatePath = localizedPath(otherLocale(locale));
 	alternatePath={alternatePath}
 >
 	<section class="hero shell">
-		<div>
+		<div class="hero__content">
 			<p class="eyebrow">{text.heroEyebrow}</p>
 			<h1>{text.heroTitle}</h1>
 			<p class="hero__intro">{text.heroIntroduction}</p>
+			<div class="hero__actions">
+				<a class="button" href={localizedPath(locale, '/portfolio/')}>{text.viewPortfolio}</a>
+				<a class="button button--secondary" href={localizedPath(locale, '/cv/')}>{text.viewCv}</a>
+			</div>
 		</div>
-		<div class="hero__actions">
-			<a class="button" href={localizedPath(locale, '/portfolio/')}>{text.viewPortfolio}</a>
-			<a class="button button--secondary" href={localizedPath(locale, '/cv/')}>{text.viewCv}</a>
-		</div>
+		<HomeSystemVisual />
 	</section>
 
 	{

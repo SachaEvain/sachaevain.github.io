@@ -1,0 +1,256 @@
+<div class="system-visual" aria-hidden="true">
+	<div class="system-visual__grid"></div>
+	<div class="system-visual__label">TRAIN → SERVE</div>
+
+	<div class="system-node system-node--data">
+		<span>01</span>
+		<strong>DATA</strong>
+		<div class="system-node__bars"><i></i><i></i><i></i></div>
+	</div>
+
+	<div class="system-flow system-flow--input"><i></i></div>
+
+	<div class="system-node system-node--model">
+		<span>02</span>
+		<strong>MODEL</strong>
+		<div class="system-node__matrix">
+			<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+		</div>
+	</div>
+
+	<div class="system-flow system-flow--output"><i></i></div>
+
+	<div class="system-node system-node--api">
+		<span>03</span>
+		<strong>API</strong>
+		<div class="system-node__status"></div>
+	</div>
+
+	<div class="system-visual__pixels"></div>
+</div>
+
+<style>
+	.system-visual {
+		position: relative;
+		aspect-ratio: 4 / 3;
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: 0.15rem;
+		background: var(--accent);
+		color: #101011;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	}
+
+	.system-visual__grid {
+		position: absolute;
+		inset: -25%;
+		background-image:
+			linear-gradient(to right, rgb(16 16 17 / 18%) 1px, transparent 1px),
+			linear-gradient(to bottom, rgb(16 16 17 / 18%) 1px, transparent 1px);
+		background-size: 20% 20%;
+		animation: grid-drift 14s linear infinite;
+	}
+
+	.system-visual__label {
+		position: absolute;
+		top: 7%;
+		left: 6%;
+		font-size: clamp(0.66rem, 1.2vw, 0.82rem);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+	}
+
+	.system-node {
+		position: absolute;
+		top: 36%;
+		display: flex;
+		width: 22%;
+		aspect-ratio: 1;
+		flex-direction: column;
+		justify-content: space-between;
+		padding: 4%;
+		border: 2px solid #101011;
+		background: var(--accent);
+	}
+
+	.system-node > span,
+	.system-node > strong {
+		font-size: clamp(0.62rem, 1.5vw, 0.9rem);
+		line-height: 1;
+	}
+
+	.system-node--data {
+		left: 5%;
+	}
+
+	.system-node--model {
+		left: 36%;
+		width: 28%;
+		background: #101011;
+		color: #f8f8f6;
+		animation: model-pulse 3.6s ease-in-out infinite;
+	}
+
+	.system-node--api {
+		right: 5%;
+		background: var(--accent-hover);
+		color: #f8f8f6;
+		animation: api-pulse 3.6s ease-in-out infinite;
+	}
+
+	.system-node__bars {
+		display: grid;
+		align-items: end;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 12%;
+		height: 38%;
+	}
+
+	.system-node__bars i {
+		background: #101011;
+		animation: data-bars 1.8s ease-in-out infinite alternate;
+	}
+
+	.system-node__bars i:nth-child(1) {
+		height: 45%;
+	}
+
+	.system-node__bars i:nth-child(2) {
+		height: 100%;
+		animation-delay: -0.6s;
+	}
+
+	.system-node__bars i:nth-child(3) {
+		height: 70%;
+		animation-delay: -1.2s;
+	}
+
+	.system-node__matrix {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 9%;
+	}
+
+	.system-node__matrix i {
+		aspect-ratio: 1;
+		background: var(--accent);
+		animation: matrix-step 1.8s steps(1) infinite;
+	}
+
+	.system-node__matrix i:nth-child(3n + 2) {
+		animation-delay: -0.6s;
+	}
+
+	.system-node__matrix i:nth-child(3n) {
+		animation-delay: -1.2s;
+	}
+
+	.system-node__status {
+		width: 28%;
+		aspect-ratio: 1;
+		margin-left: auto;
+		background: #f8f8f6;
+		box-shadow: -100% 0 #f8f8f6, -200% 0 #f8f8f6;
+	}
+
+	.system-flow {
+		position: absolute;
+		top: 50%;
+		z-index: 1;
+		width: 9%;
+		height: 2px;
+		background: #101011;
+	}
+
+	.system-flow--input {
+		left: 27%;
+	}
+
+	.system-flow--output {
+		left: 64%;
+	}
+
+	.system-flow i {
+		position: absolute;
+		top: -0.22rem;
+		left: 0;
+		width: 0.5rem;
+		aspect-ratio: 1;
+		background: #101011;
+		animation: data-flow 1.8s linear infinite;
+	}
+
+	.system-flow--output i {
+		animation-delay: -0.9s;
+	}
+
+	.system-visual__pixels {
+		position: absolute;
+		right: 8%;
+		bottom: 8%;
+		width: 0.55rem;
+		aspect-ratio: 1;
+		background: #101011;
+		box-shadow:
+			-0.55rem -0.55rem #101011,
+			-1.1rem -1.1rem #101011,
+			-0.55rem -1.65rem #101011;
+		animation: pixels-float 3.6s ease-in-out infinite;
+	}
+
+	@keyframes grid-drift {
+		to {
+			transform: translate(20%, 20%);
+		}
+	}
+
+	@keyframes data-bars {
+		to {
+			transform: scaleY(0.45);
+		}
+	}
+
+	@keyframes matrix-step {
+		0%,
+		32% {
+			opacity: 0.25;
+		}
+		33%,
+		100% {
+			opacity: 1;
+		}
+	}
+
+	@keyframes data-flow {
+		to {
+			left: calc(100% - 0.5rem);
+		}
+	}
+
+	@keyframes model-pulse {
+		45%,
+		55% {
+			transform: scale(1.04);
+		}
+	}
+
+	@keyframes api-pulse {
+		65%,
+		75% {
+			background: #101011;
+		}
+	}
+
+	@keyframes pixels-float {
+		50% {
+			transform: translateY(-0.8rem);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.system-visual *,
+		.system-visual {
+			animation: none;
+		}
+	}
+</style>

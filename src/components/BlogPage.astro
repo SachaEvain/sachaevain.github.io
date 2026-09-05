@@ -24,7 +24,66 @@ const posts = await getLocalizedPosts(locale);
 		<h1>{text.blogTitle}</h1>
 	</header>
 
-	<section class="section shell" aria-label={text.blogTitle}>
+	<section class="blog-toolbar" aria-label={text.blogFilterLabel} data-blog-toolbar>
+		<div class="blog-toolbar__inner shell">
+			<div class="blog-toolbar__filters">
+				<strong>{text.blogFilterLabel}</strong>
+				<span>{posts.length} {text.blogCountLabel}</span>
+				<button type="button" data-post-filter="case-study" aria-pressed="false">
+					{text.caseStudy}
+				</button>
+				<button type="button" data-post-filter="article" aria-pressed="false">
+					{text.article}
+				</button>
+			</div>
+			<div class="blog-toolbar__search-group">
+				<label class="blog-toolbar__search">
+					<span aria-hidden="true">⌕</span>
+					<input
+						type="search"
+						placeholder={text.blogSearchPlaceholder}
+						aria-label={text.blogSearchPlaceholder}
+						data-post-search
+					/>
+				</label>
+				<a class="blog-toolbar__rss" href={localizedPath(locale, '/rss.xml')} aria-label={text.rss}>
+					RSS
+				</a>
+			</div>
+		</div>
+	</section>
+
+	<section class="section" aria-label={text.blogTitle}>
 		<PostList posts={posts} locale={locale} />
 	</section>
 </BaseLayout>
+
+<script>
+	const toolbar = document.querySelector<HTMLElement>('[data-blog-toolbar]');
+
+	if (toolbar) {
+		const cards = [...document.querySelectorAll<HTMLElement>('[data-post-card]')];
+		const filters = [...toolbar.querySelectorAll<HTMLButtonElement>('[data-post-filter]')];
+		const search = toolbar.querySelector<HTMLInputElement>('[data-post-search]');
+		const update = () => {
+			const activeTypes = filters
+				.filter((filter) => filter.getAttribute('aria-pressed') === 'true')
+				.map((filter) => filter.dataset.postFilter);
+			const query = search?.value.trim().toLocaleLowerCase() ?? '';
+
+			cards.forEach((card) => {
+				const matchesType = activeTypes.length === 0 || activeTypes.includes(card.dataset.postType);
+				const matchesQuery = !query || card.textContent?.toLocaleLowerCase().includes(query);
+				card.hidden = !(matchesType && matchesQuery);
+			});
+		};
+
+		filters.forEach((filter) => {
+			filter.addEventListener('click', () => {
+				filter.setAttribute('aria-pressed', String(filter.getAttribute('aria-pressed') !== 'true'));
+				update();
+			});
+		});
+		search?.addEventListener('input', update);
+	}
+</script>
