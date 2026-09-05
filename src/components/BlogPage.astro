@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import AnimatedTitle from './AnimatedTitle.astro';
 import PostList from './PostList.astro';
 import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
 import { getLocalizedPosts } from '../lib/posts';
@@ -19,9 +20,11 @@ const posts = await getLocalizedPosts(locale);
 	description={text.blogDescription}
 	alternatePath={localizedPath(otherLocale(locale), '/blog/')}
 >
-	<header class="page-header shell">
-		<p class="eyebrow">{text.blog}</p>
-		<h1>{text.blogTitle}</h1>
+	<header class="page-header">
+		<div class="shell">
+			<p class="eyebrow">{text.blog}</p>
+			<AnimatedTitle text={text.blogTitle} />
+		</div>
 	</header>
 
 	<section class="blog-toolbar" aria-label={text.blogFilterLabel} data-blog-toolbar>

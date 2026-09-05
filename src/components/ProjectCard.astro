@@ -1,0 +1,54 @@
+---
+import { Image } from 'astro:assets';
+import { copy, type Locale } from '../i18n';
+import type { Project } from '../lib/projects';
+
+interface Props {
+	project: Project;
+	locale: Locale;
+}
+
+const { project, locale } = Astro.props;
+const text = copy[locale];
+---
+
+<article class="editorial-card">
+	<div class="editorial-card__body">
+		<p class="eyebrow">{text.codeProject}</p>
+		<h3>
+			<a href={project.data.repositoryUrl} target="_blank" rel="noreferrer">
+				{project.data.title}
+			</a>
+		</h3>
+		<p>{project.data.description}</p>
+		<ul class="tag-list" aria-label={text.tags}>
+			{project.data.tags.map((tag) => <li>{tag}</li>)}
+		</ul>
+	</div>
+	<div class="editorial-card__visual" aria-hidden="true">
+		{
+			project.data.cover ? (
+				<Image src={project.data.cover} alt="" loading="lazy" />
+			) : project.data.coverUrl ? (
+				<img src={project.data.coverUrl} alt="" loading="lazy" />
+			) : (
+				<div class="editorial-card__fallback">
+					<span>ML / CODE</span>
+					<strong>{project.data.translationKey.replaceAll('-', ' ').toUpperCase()}</strong>
+				</div>
+			)
+		}
+	</div>
+	<footer class="editorial-card__meta">
+		<span>{project.data.status}</span>
+		<span>{text.githubLabel}</span>
+		<a
+			href={project.data.repositoryUrl}
+			target="_blank"
+			rel="noreferrer"
+			aria-label={`${text.viewRepository}: ${project.data.title}`}
+		>
+			<span class="pixel-arrow" aria-hidden="true"></span>
+		</a>
+	</footer>
+</article>

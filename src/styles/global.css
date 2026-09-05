@@ -355,6 +355,15 @@ h3 {
 	border-top: 1px solid var(--border);
 }
 
+.section--flush {
+	padding-block: 0;
+	border-top: 0;
+}
+
+.section--flush .portfolio-grid {
+	border-top: 0;
+}
+
 .section-heading {
 	display: flex;
 	align-items: baseline;
@@ -478,6 +487,41 @@ h3 {
 
 .blog-toolbar + .section {
 	border-top: 0;
+	padding-block: 0;
+}
+
+.blog-toolbar + .section .post-list {
+	border-top: 0;
+}
+
+.animated-title {
+	font-kerning: none;
+}
+
+.animated-title__word {
+	display: inline-flex;
+	white-space: nowrap;
+}
+
+.animated-title__mask {
+	display: inline-block;
+	overflow: hidden;
+	vertical-align: bottom;
+}
+
+.animated-title__char {
+	display: inline-block;
+	animation: reveal-title-character 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--char-delay) both;
+}
+
+@keyframes reveal-title-character {
+	from {
+		transform: translateY(110%);
+	}
+
+	to {
+		transform: translateY(0);
+	}
 }
 
 .text-link {
@@ -610,6 +654,7 @@ h3 {
 	border-radius: 0.2rem;
 	background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 	color: var(--accent);
+	transition: background-color 180ms ease, color 180ms ease;
 }
 
 .editorial-card__body h3 {
@@ -624,6 +669,7 @@ h3 {
 .editorial-card__body h3 a {
 	overflow-wrap: anywhere;
 	text-decoration: none;
+	transition: color 180ms ease;
 }
 
 .editorial-card__body > p:not(.eyebrow) {
@@ -664,11 +710,17 @@ h3 {
 	overflow: hidden;
 	color: var(--text);
 	text-decoration: none;
+	transition: background-color 180ms ease, color 180ms ease;
 }
 
-.editorial-card__meta a:hover {
+.editorial-card:is(:hover, :focus-within) .editorial-card__body .eyebrow,
+.editorial-card:is(:hover, :focus-within) .editorial-card__meta a {
 	background: var(--accent);
 	color: var(--accent-foreground);
+}
+
+.editorial-card:is(:hover, :focus-within) .editorial-card__body h3 a {
+	color: var(--accent);
 }
 
 .pixel-arrow {
@@ -702,13 +754,11 @@ h3 {
 	transition-delay: 50ms;
 }
 
-.editorial-card__meta a:hover .pixel-arrow::before,
-.editorial-card__meta a:focus-visible .pixel-arrow::before {
+.editorial-card:is(:hover, :focus-within) .pixel-arrow::before {
 	transform: translateX(0);
 }
 
-.editorial-card__meta a:hover .pixel-arrow::after,
-.editorial-card__meta a:focus-visible .pixel-arrow::after {
+.editorial-card:is(:hover, :focus-within) .pixel-arrow::after {
 	transform: translateX(2rem);
 }
 
@@ -717,7 +767,7 @@ h3 {
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.editorial-card:hover {
+.editorial-card:is(:hover, :focus-within) {
 	border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
@@ -1376,6 +1426,10 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
 	html {
 		scroll-behavior: auto;
+	}
+
+	.animated-title__char {
+		animation: none;
 	}
 
 	.pixel-arrow::before,

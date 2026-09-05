@@ -23,4 +23,21 @@ const posts = defineCollection({
 		}),
 });
 
-export const collections = { posts };
+const projects = defineCollection({
+	loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/projects' }),
+	schema: ({ image }) =>
+		z.object({
+			title: z.string(),
+			description: z.string(),
+			locale: z.enum(['fr', 'en']),
+			translationKey: z.string(),
+			repositoryUrl: z.url(),
+			status: z.string(),
+			tags: z.array(z.string()).default([]),
+			order: z.number().int().nonnegative().default(0),
+			cover: image().optional(),
+			coverUrl: z.url().optional(),
+		}),
+});
+
+export const collections = { posts, projects };
