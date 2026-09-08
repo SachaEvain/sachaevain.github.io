@@ -1,15 +1,18 @@
 ---
+import { withBase } from '../i18n';
+
 interface Props {
 	src: string;
 	title: string;
 }
 
 const { src, title } = Astro.props;
+const resolvedSrc = src.startsWith('/') ? withBase(src) : src;
 ---
 
 <iframe
 	class="codex-visualization"
-	src={src}
+	src={resolvedSrc}
 	title={title}
 	loading="lazy"
 	referrerpolicy="no-referrer"

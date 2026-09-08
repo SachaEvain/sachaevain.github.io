@@ -8,7 +8,8 @@ import remarkMath from 'remark-math';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://example.github.io',
+	site: 'https://limesku.github.io',
+	base: '/LimeMLBlog',
 	output: 'static',
 	trailingSlash: 'always',
 	integrations: [mdx(), sitemap()],

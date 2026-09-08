@@ -30,7 +30,9 @@ const {
 const text = copy[locale];
 const currentPath = Astro.url.pathname;
 const alternateLocale = otherLocale(locale);
-const logicalPath = locale === 'en' ? currentPath.replace(/^\/en(?=\/|$)/, '') || '/' : currentPath;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const routePath = currentPath.startsWith(base) ? currentPath.slice(base.length) || '/' : currentPath;
+const logicalPath = locale === 'en' ? routePath.replace(/^\/en(?=\/|$)/, '') || '/' : routePath;
 const resolvedAlternatePath = alternatePath ?? localizedPath(alternateLocale, logicalPath);
 const canonicalUrl = new URL(currentPath, Astro.site);
 const alternateUrl = new URL(resolvedAlternatePath, Astro.site);

@@ -5,7 +5,7 @@ import { getLocalizedPosts, postPath } from './posts';
 export async function buildRss(locale: Locale, site: URL | undefined): Promise<Response> {
 	const text = copy[locale];
 	const posts = await getLocalizedPosts(locale);
-	const feedSite = new URL(localizedPath(locale), site ?? 'https://example.github.io');
+	const feedSite = new URL(localizedPath(locale), site ?? 'https://limesku.github.io');
 
 	return rss({
 		title: text.siteName,

@@ -150,9 +150,15 @@ const en: typeof fr = {
 
 export const copy = { fr, en } as const;
 
+export function withBase(path: string): string {
+	const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+	return `${base}${normalizedPath}`;
+}
+
 export function localizedPath(locale: Locale, path = '/'): string {
 	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-	return locale === 'fr' ? normalizedPath : `/en${normalizedPath}`;
+	return withBase(locale === 'fr' ? normalizedPath : `/en${normalizedPath}`);
 }
 
 export function otherLocale(locale: Locale): Locale {

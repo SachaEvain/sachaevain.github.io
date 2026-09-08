@@ -1,5 +1,6 @@
 ---
 import { Image } from 'astro:assets';
+import { withBase } from '../i18n';
 import type { Post } from '../lib/posts';
 
 interface Props {
@@ -18,7 +19,7 @@ const visualName = post.data.translationKey.replaceAll('-', ' ').toUpperCase();
 			<Image src={post.data.cover} alt="" loading={featured ? 'eager' : 'lazy'} />
 		) : post.data.visualization ? (
 			<iframe
-				src={post.data.visualization}
+				src={withBase(post.data.visualization)}
 				title=""
 				tabindex="-1"
 				loading={featured ? 'eager' : 'lazy'}
