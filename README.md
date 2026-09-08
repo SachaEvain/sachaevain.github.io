@@ -1,59 +1,59 @@
-# Portfolio et blog ML
+# ML portfolio and blog
 
-Site statique bilingue construit avec Astro. Le français est servi à la racine et l'anglais sous `/en/`. Le contenu actuel est volontairement composé uniquement de placeholders.
+Bilingual static site built with Astro. French is served at the root and English under `/en/`. Some draft content is still represented by placeholders.
 
-## Environnement
+## Environment
 
-Le projet utilise Node 24 et npm :
+The project uses Node 24 and npm:
 
 ```sh
-nvm use
+nvm use 24
 npm install
 ```
 
-Si `nvm` n'est pas installé, activez Node 24 avec votre gestionnaire de versions habituel avant d'installer les dépendances.
+If `nvm` is not installed, activate Node 24 with your usual version manager before installing the dependencies.
 
-## Commandes
+## Commands
 
 ```sh
-npm run dev      # serveur local
-npm run check    # validation Astro et TypeScript
-npm run build    # génération dans dist/
-npm run preview  # prévisualisation du build
+npm run dev      # local server
+npm run check    # Astro and TypeScript validation
+npm run build    # build to dist/
+npm run preview  # preview the build
 ```
 
-## Remplacer les placeholders
+## Replacing placeholders
 
-- Les libellés communs et les textes courts sont dans `src/i18n.ts`.
-- Les articles et études de cas sont dans `src/content/posts/fr/` et `src/content/posts/en/`.
-- Chaque article traduit partage la même valeur `translationKey`.
-- Le portfolio affiche automatiquement les articles ayant `type: case-study`.
-- Une seule étude de cas publiée peut utiliser `featured: true` par langue.
+- Shared labels and short text are in `src/i18n.ts`.
+- Articles and case studies are in `src/content/posts/fr/` and `src/content/posts/en/`.
+- Each translated article shares the same `translationKey` value.
+- The portfolio automatically displays articles with `type: case-study`.
+- Only one published case study per language can use `featured: true`.
 
-La validation échoue volontairement lorsqu'une traduction manque ou lorsqu'une langue possède plusieurs études principales.
+Validation intentionally fails when a translation is missing or a language has multiple featured case studies.
 
-## Ajouter une visualisation Codex
+## Adding a Codex visualization
 
-1. Copier le fichier HTML exporté dans `public/visualizations/`.
-2. Importer `CodexVisualization.astro` dans l'article MDX.
-3. Fournir le chemin public et un titre accessible :
+1. Copy the exported HTML file to `public/visualizations/`.
+2. Import `CodexVisualization.astro` into the MDX article.
+3. Provide the public path and an accessible title:
 
 ```mdx
 <CodexVisualization
   src="/visualizations/example.html"
-  title="[VISUALIZATION_TITLE_FR]"
+  title="[VISUALIZATION_TITLE]"
 />
 ```
 
-La visualisation reste isolée du site par un iframe sandboxé. Les exports qui chargent D3 ou des icônes depuis un CDN nécessitent une connexion réseau.
+The visualization remains isolated from the site in a sandboxed iframe. Exports that load D3 or icons from a CDN require a network connection.
 
-## Préparer la publication
+## Preparing for publication
 
-1. Remplacer `https://example.github.io` dans `astro.config.mjs`.
-2. Remplacer tous les placeholders FR et EN.
-3. Ajouter les CV dans `public/cv/cv-fr.pdf` et `public/cv/cv-en.pdf`, puis activer leurs liens.
-4. Passer `ready` à `true` dans `src/config.ts` pour autoriser l'indexation.
-5. Créer le dépôt GitHub Pages et sélectionner **GitHub Actions** comme source.
-6. Déclencher manuellement le workflow **Deploy to GitHub Pages**.
+1. Update `site` and `base` in `astro.config.mjs` if the GitHub account or repository name changes.
+2. Replace all French and English placeholders.
+3. Replace the CVs at `public/cv/sacha-evain-cv-fr.pdf` and `public/cv/sacha-evain-cv-en.pdf` when needed; their download links are already enabled.
+4. Set `ready` to `true` in `src/config.ts` to allow indexing.
+5. Create the GitHub Pages repository and select **GitHub Actions** as the source.
+6. Manually trigger the **Deploy to GitHub Pages** workflow.
 
-Le workflow ne se lance pas lors d'un push tant que cette règle n'est pas ajoutée explicitement.
+The workflow does not run on push unless that trigger is explicitly added.
