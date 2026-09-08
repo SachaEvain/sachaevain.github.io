@@ -1,5 +1,10 @@
 # build output
 dist/
+
+# local working files
+tmp/
+work/
+
 # generated types
 .astro/
 
