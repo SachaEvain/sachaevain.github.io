@@ -10,11 +10,13 @@ const { src, title } = Astro.props;
 const resolvedSrc = src.startsWith('/') ? withBase(src) : src;
 ---
 
-<iframe
-	class="codex-visualization"
-	src={resolvedSrc}
-	title={title}
-	loading="lazy"
-	referrerpolicy="no-referrer"
-	sandbox="allow-scripts"
-></iframe>
+<div class="codex-visualization-frame">
+	<iframe
+		class="codex-visualization"
+		src={resolvedSrc}
+		title={title}
+		loading="lazy"
+		referrerpolicy="no-referrer"
+		sandbox="allow-scripts"
+	></iframe>
+</div>
