@@ -1,0 +1,42 @@
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	viewBox="0 0 128 128"
+	role="img"
+	aria-labelledby="logo-title"
+	shape-rendering="crispEdges"
+>
+	<title id="logo-title">Sacha Evain</title>
+	<defs>
+		<linearGradient id="s-gradient" x2="0" y2="112" gradientUnits="userSpaceOnUse">
+			<stop offset=".34" stop-color="#FA500E" />
+			<stop offset=".34" stop-color="#D65032" />
+			<stop offset=".68" stop-color="#D65032" />
+			<stop offset=".68" stop-color="#B24F56" />
+		</linearGradient>
+		<linearGradient id="e-gradient" x2="0" y2="112" gradientUnits="userSpaceOnUse">
+			<stop offset=".34" stop-color="#664F91" />
+			<stop offset=".34" stop-color="#414EB5" />
+			<stop offset=".68" stop-color="#414EB5" />
+			<stop offset=".68" stop-color="#1D4ED8" />
+		</linearGradient>
+		<clipPath id="s-shape" clipPathUnits="userSpaceOnUse">
+			<path d="M16 0H96V16H16ZM0 16H32V48H0ZM16 48H96V64H16ZM80 64H112V96H80ZM16 96H96V112H16Z" />
+		</clipPath>
+	</defs>
+	<path
+		fill="url(#s-gradient)"
+		d="M16 0H96V16H16ZM0 16H32V48H0ZM16 48H96V64H16ZM80 64H112V96H80ZM16 96H96V112H16Z"
+	/>
+	<path
+		fill="url(#e-gradient)"
+		transform="translate(16 16)"
+		d="M0 0H96V16H0ZM0 16H32V48H0ZM0 48H80V64H0ZM0 64H32V96H0ZM0 96H96V112H0Z"
+	/>
+	<g clip-path="url(#s-shape)">
+		<path
+			fill="#8C4F73"
+			transform="translate(16 16)"
+			d="M0 0H96V16H0ZM0 16H32V48H0ZM0 48H80V64H0ZM0 64H32V96H0ZM0 96H96V112H0Z"
+		/>
+	</g>
+</svg>

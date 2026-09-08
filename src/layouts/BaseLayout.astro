@@ -4,7 +4,7 @@ import '../styles/global.css';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import { SITE } from '../config';
-import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
+import { copy, localizedPath, otherLocale, withBase, type Locale } from '../i18n';
 
 interface Props {
 	locale: Locale;
@@ -53,6 +53,7 @@ const rssPath = localizedPath(locale, '/rss.xml');
 		</script>
 		<meta name="generator" content={Astro.generator} />
 		<meta name="description" content={description} />
+		<link rel="icon" type="image/svg+xml" href={withBase('/logo.svg')} />
 		<meta name="robots" content={SITE.ready ? 'index, follow' : 'noindex, nofollow'} />
 		<meta property="og:type" content={ogType} />
 		<meta property="og:title" content={title} />
