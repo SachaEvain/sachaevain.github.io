@@ -500,6 +500,7 @@ h3 {
 
 .animated-title__word {
 	display: inline-flex;
+	vertical-align: bottom;
 	white-space: nowrap;
 }
 
@@ -514,6 +515,23 @@ h3 {
 	animation: reveal-title-character 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--char-delay) both;
 }
 
+.animated-title--hero {
+	overflow: hidden;
+	animation: reveal-hero-title 1300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animated-title--hero .animated-title__mask {
+	height: 1.12em;
+}
+
+.animated-title--hero .animated-title__char {
+	animation-duration: 1000ms;
+}
+
+.animated-title--hero .animated-title__char--roll {
+	animation-name: reveal-title-character-roll;
+}
+
 @keyframes reveal-title-character {
 	from {
 		transform: translateY(110%);
@@ -521,6 +539,26 @@ h3 {
 
 	to {
 		transform: translateY(0);
+	}
+}
+
+@keyframes reveal-title-character-roll {
+	from {
+		transform: translateY(100%);
+	}
+
+	to {
+		transform: translateY(-50%);
+	}
+}
+
+@keyframes reveal-hero-title {
+	from {
+		clip-path: inset(0 0 100%);
+	}
+
+	to {
+		clip-path: inset(0);
 	}
 }
 
@@ -1429,6 +1467,10 @@ h3 {
 	}
 
 	.animated-title__char {
+		animation: none;
+	}
+
+	.animated-title--hero {
 		animation: none;
 	}
 

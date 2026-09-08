@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import AnimatedTitle from './AnimatedTitle.astro';
 import { copy, localizedPath, otherLocale, withBase, type Locale } from '../i18n';
 
 interface Props {
@@ -183,7 +184,7 @@ const cv = cvByLocale[locale];
 	<header class="page-header shell cv-header">
 		<div>
 			<p class="eyebrow">{text.cv}</p>
-			<h1>{text.cvTitle}</h1>
+			<AnimatedTitle text={text.cvTitle} />
 			<p class="cv-intro">{text.cvDescription}</p>
 			<p class="cv-updated"><time datetime="2026-09">{cv.updated}</time></p>
 		</div>

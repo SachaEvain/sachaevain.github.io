@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import AnimatedTitle from './AnimatedTitle.astro';
 import CaseStudyCard from './CaseStudyCard.astro';
 import HomeSystemVisual from './HomeSystemVisual.astro';
 import PostList from './PostList.astro';
@@ -29,7 +30,7 @@ const alternatePath = localizedPath(otherLocale(locale));
 	<section class="hero shell">
 		<div class="hero__content">
 			<p class="eyebrow">{text.heroEyebrow}</p>
-			<h1>{text.heroTitle}</h1>
+			<AnimatedTitle text={text.heroTitle} variant="hero" />
 			<p class="hero__intro">{text.heroIntroduction}</p>
 			<div class="hero__actions">
 				<a class="button" href={localizedPath(locale, '/portfolio/')}>{text.viewPortfolio}</a>

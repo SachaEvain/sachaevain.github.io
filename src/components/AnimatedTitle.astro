@@ -1,28 +1,43 @@
 ---
 interface Props {
 	text: string;
+	variant?: 'default' | 'hero';
 }
 
-const { text } = Astro.props;
+const { text, variant = 'default' } = Astro.props;
 let characterIndex = 0;
 const words = text.split(' ').map((word) =>
-	Array.from(word).map((character) => ({
-		character,
-		delay: 40 + ((characterIndex++ * 83) % 280),
-	})),
+	Array.from(word).map((character) => {
+		const index = characterIndex++;
+		return {
+			character,
+			delay:
+				variant === 'hero'
+					? 40 + index * (1 + ((index * 7) % 5)) * 5
+					: 40 + ((index * 83) % 280),
+			roll:
+				variant === 'hero' &&
+				!['y', 'p', 'q'].includes(character.toLowerCase()) &&
+				(index % 5 === 0 || index % 8 === 0),
+		};
+	}),
 );
 ---
 
-<h1 class="animated-title" aria-label={text}>
+<h1 class:list={['animated-title', { 'animated-title--hero': variant === 'hero' }]} aria-label={text}>
 	{
 		words.map((word, wordIndex) => (
 			<>
 				{wordIndex > 0 && ' '}
 				<span class="animated-title__word" aria-hidden="true">
-					{word.map(({ character, delay }) => (
+					{word.map(({ character, delay, roll }) => (
 						<span class="animated-title__mask">
-							<span class="animated-title__char" style={`--char-delay: ${delay}ms`}>
+							<span
+								class:list={['animated-title__char', { 'animated-title__char--roll': roll }]}
+								style={`--char-delay: ${delay}ms`}
+							>
 								{character}
+								{roll && <><br />{character}</>}
 							</span>
 						</span>
 					))}
