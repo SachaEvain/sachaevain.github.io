@@ -375,12 +375,6 @@ h3 {
 	color: var(--text);
 }
 
-.button--disabled {
-	cursor: not-allowed;
-	border-color: var(--border);
-	background: var(--border);
-	color: var(--muted);
-}
 
 .eyebrow {
 	margin-bottom: var(--space-2);
