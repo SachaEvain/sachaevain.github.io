@@ -608,7 +608,6 @@ h3 {
 	font-weight: 700;
 }
 
-.case-grid,
 .portfolio-grid,
 .post-list {
 	display: grid;
@@ -1418,7 +1417,6 @@ main:has(> .section:last-child > :is(.portfolio-grid, .post-list)) + .site-foote
 		max-width: none;
 	}
 
-	.case-grid,
 	.portfolio-grid,
 	.post-list {
 		grid-template-columns: 1fr;
@@ -1477,7 +1475,6 @@ main:has(> .section:last-child > :is(.portfolio-grid, .post-list)) + .site-foote
 		padding-block: var(--space-7);
 	}
 
-	.case-grid,
 	.portfolio-grid,
 	.post-list,
 	.article-pagination {

@@ -58,16 +58,4 @@ function validatePosts(posts: Post[]): void {
 		}
 	}
 
-	for (const locale of ['fr', 'en'] satisfies Locale[]) {
-		const featuredCount = posts.filter(
-			(post) =>
-				post.data.locale === locale &&
-				post.data.type === 'case-study' &&
-				post.data.featured &&
-				!post.data.draft,
-		).length;
-		if (featuredCount > 1) {
-			throw new Error(`Only one featured case study is allowed for locale "${locale}".`);
-		}
-	}
 }

@@ -1,11 +1,12 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import AnimatedTitle from './AnimatedTitle.astro';
-import CaseStudyCard from './CaseStudyCard.astro';
 import HomeSystemVisual from './HomeSystemVisual.astro';
 import PostList from './PostList.astro';
+import ProjectCard from './ProjectCard.astro';
 import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
 import { getLocalizedPosts } from '../lib/posts';
+import { getLocalizedProjects } from '../lib/projects';
 
 interface Props {
 	locale: Locale;
@@ -13,11 +14,8 @@ interface Props {
 
 const { locale } = Astro.props;
 const text = copy[locale];
-const posts = await getLocalizedPosts(locale);
-const caseStudies = posts.filter((post) => post.data.type === 'case-study');
-const featured = caseStudies.find((post) => post.data.featured) ?? caseStudies[0];
-const otherCases = caseStudies.filter((post) => post !== featured).slice(0, 2);
-const articles = posts.filter((post) => post.data.type === 'article').slice(0, 3);
+const articles = (await getLocalizedPosts(locale)).slice(0, 3);
+const projects = (await getLocalizedProjects(locale)).slice(0, 2);
 const alternatePath = localizedPath(otherLocale(locale));
 ---
 
@@ -40,33 +38,6 @@ const alternatePath = localizedPath(otherLocale(locale));
 		</div>
 	</section>
 
-	{
-		featured && (
-			<section class="section shell">
-				<div class="section-heading">
-					<h2>{text.featuredCaseStudy}</h2>
-				</div>
-				<CaseStudyCard post={featured} locale={locale} featured />
-			</section>
-		)
-	}
-
-	{
-		otherCases.length > 0 && (
-			<section class="section shell">
-				<div class="section-heading">
-					<h2>{text.otherProjects}</h2>
-					<a class="text-link" href={localizedPath(locale, '/portfolio/')}>
-						{text.allProjects}<span aria-hidden="true"> →</span>
-					</a>
-				</div>
-				<div class="case-grid">
-					{otherCases.map((post) => <CaseStudyCard post={post} locale={locale} />)}
-				</div>
-			</section>
-		)
-	}
-
 	<section class="section shell">
 		<div class="section-heading">
 			<h2>{text.latestArticles}</h2>
@@ -75,6 +46,24 @@ const alternatePath = localizedPath(otherLocale(locale));
 			</a>
 		</div>
 		<PostList posts={articles} locale={locale} />
+	</section>
+
+	<section class="section shell">
+		<div class="section-heading">
+			<h2>{text.recentProjects}</h2>
+			<a class="text-link" href={localizedPath(locale, '/portfolio/')}>
+				{text.allProjects}<span aria-hidden="true"> →</span>
+			</a>
+		</div>
+		<div class="portfolio-grid">
+			{
+				projects.map((project) => (
+					<div class="editorial-grid__cell">
+						<ProjectCard project={project} locale={locale} />
+					</div>
+				))
+			}
+		</div>
 	</section>
 
 	<section class="contact-strip shell">

@@ -19,6 +19,7 @@ If `nvm` is not installed, activate Node 24 with your usual version manager befo
 npm run dev      # local server
 npm run check    # Astro and TypeScript validation
 npm run build    # build to dist/
+node scripts/check-project-pages.mjs # smoke-check project routes after building
 npm run preview  # preview the build
 ```
 
@@ -27,10 +28,11 @@ npm run preview  # preview the build
 - Shared labels and short text are in `src/i18n.ts`.
 - Articles and case studies are in `src/content/posts/fr/` and `src/content/posts/en/`.
 - Each translated article shares the same `translationKey` value.
-- The portfolio automatically displays articles with `type: case-study`.
-- Only one published case study per language can use `featured: true`.
+- The portfolio displays projects from `src/content/projects/fr/` and `src/content/projects/en/`.
+- Each project has a detail page at `/portfolio/<slug>/` (or `/en/portfolio/<slug>/`); its Markdown body provides the overview and capabilities. Translations share a `translationKey`.
+- Articles and case studies remain in the blog. Project descriptions can link to related case studies.
 
-Validation intentionally fails when a translation is missing or a language has multiple featured case studies.
+Validation intentionally fails when a post translation is missing or duplicated.
 
 ## Adding a Codex visualization
 

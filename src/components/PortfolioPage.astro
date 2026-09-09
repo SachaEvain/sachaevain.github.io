@@ -1,10 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import AnimatedTitle from './AnimatedTitle.astro';
-import CaseStudyCard from './CaseStudyCard.astro';
 import ProjectCard from './ProjectCard.astro';
 import { copy, localizedPath, otherLocale, type Locale } from '../i18n';
-import { getLocalizedPosts } from '../lib/posts';
 import { getLocalizedProjects } from '../lib/projects';
 
 interface Props {
@@ -13,14 +11,7 @@ interface Props {
 
 const { locale } = Astro.props;
 const text = copy[locale];
-const caseStudies = (await getLocalizedPosts(locale)).filter(
-	(post) => post.data.type === 'case-study',
-);
 const projects = await getLocalizedProjects(locale);
-const portfolioItems = [
-	...caseStudies.map((entry) => ({ kind: 'case-study' as const, entry })),
-	...projects.map((entry) => ({ kind: 'project' as const, entry })),
-];
 ---
 
 <BaseLayout
@@ -40,13 +31,9 @@ const portfolioItems = [
 	<section class="section section--flush" aria-label={text.portfolioTitle}>
 		<div class="portfolio-grid">
 			{
-				portfolioItems.map((item, index) => (
-					<div class:list={['editorial-grid__cell', { 'editorial-grid__cell--featured': index === 0 }]}>
-						{item.kind === 'case-study' ? (
-							<CaseStudyCard post={item.entry} locale={locale} featured={index === 0} />
-						) : (
-							<ProjectCard project={item.entry} locale={locale} />
-						)}
+				projects.map((project) => (
+					<div class="editorial-grid__cell">
+						<ProjectCard project={project} locale={locale} />
 					</div>
 				))
 			}

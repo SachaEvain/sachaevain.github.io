@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ContentWithToc from './ContentWithToc.astro';
 import { copy, localizedPath, type Locale } from '../i18n';
 import {
 	getLocalizedPosts,
@@ -22,7 +23,6 @@ const posts = await getPosts();
 const localizedPosts = await getLocalizedPosts(locale);
 const translation = getTranslation(posts, post);
 const { Content, headings } = await render(post);
-const articleHeadings = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
 const index = localizedPosts.findIndex((candidate) => candidate.id === post.id);
 const newerPost = index > 0 ? localizedPosts[index - 1] : undefined;
 const olderPost = index < localizedPosts.length - 1 ? localizedPosts[index + 1] : undefined;
@@ -110,40 +110,9 @@ const heroCover = post.data.heroCover ?? post.data.cover;
 				)
 			}
 
-			{
-				articleHeadings.length > 0 && (
-					<details class="toc toc--mobile">
-						<summary>{text.tableOfContents}</summary>
-						<nav>
-							{articleHeadings.map((heading) => (
-								<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
-									{heading.text}
-								</a>
-							))}
-						</nav>
-					</details>
-				)
-			}
-
-			<div class="article-grid">
-				{
-					articleHeadings.length > 0 && (
-						<aside class="toc toc--desktop">
-							<p>{text.tableOfContents}</p>
-							<nav>
-								{articleHeadings.map((heading) => (
-									<a class:list={{ 'toc-depth-3': heading.depth === 3 }} href={`#${heading.slug}`}>
-										{heading.text}
-									</a>
-								))}
-							</nav>
-						</aside>
-					)
-				}
-				<div class="prose">
-					<Content />
-				</div>
-			</div>
+			<ContentWithToc headings={headings} locale={locale}>
+				<Content />
+			</ContentWithToc>
 
 			<nav class="article-pagination" aria-label={text.blog}>
 				{

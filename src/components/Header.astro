@@ -17,7 +17,7 @@ const links = [
 ];
 
 const isActive = (href: string): boolean =>
-	currentPath === href || (href.includes('/blog/') && currentPath.startsWith(href));
+	currentPath.startsWith(href);
 ---
 
 <header class="site-header">
