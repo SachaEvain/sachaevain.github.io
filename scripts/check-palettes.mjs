@@ -10,7 +10,9 @@ const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05)
 	/ (Math.min(luminance(a), luminance(b)) + 0.05);
 
 assert.equal(Object.keys(PALETTES).length, 9);
+assert.equal(PALETTES.mistral.fill, '#FA500E');
 for (const [name, palette] of Object.entries(PALETTES)) {
+	assert.ok(contrast(palette.fill ?? palette.light, palette.fillForeground ?? '#FFFFFF') >= 4.5, `${name}: button contrast`);
 	assert.equal(palette.pixels.length, 6, `${name}: six pixel shades`);
 	for (const color of [palette.light, palette.hover, palette.dark, palette.glow, ...palette.pixels]) {
 		assert.match(color, /^#[0-9A-F]{6}$/, `${name}: valid color`);

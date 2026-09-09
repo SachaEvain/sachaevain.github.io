@@ -16,7 +16,7 @@ const { src, alt, class: className } = Astro.props;
 ---
 
 {src.src === PurellmCover.src ? (
-	<PurellmCover class={className} role="img" aria-label={alt || undefined} aria-hidden={alt ? undefined : 'true'} />
+	<PurellmCover class={className} preserveAspectRatio="xMidYMid slice" role="img" aria-label={alt || undefined} aria-hidden={alt ? undefined : 'true'} />
 ) : (
 	<Image {...Astro.props} />
 )}

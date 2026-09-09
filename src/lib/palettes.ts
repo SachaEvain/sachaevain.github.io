@@ -1,5 +1,5 @@
 export const PALETTES = {
-	mistral: { fr: 'Mistral', en: 'Mistral', light: '#C2410C', hover: '#9A3412', dark: '#FA500E', glow: '#FFE4A2', pixels: ['#9F281B', '#D93612', '#FA500E', '#FF7610', '#FF9614', '#FFBD2E'] },
+	mistral: { fr: 'Mistral', en: 'Mistral', light: '#C2410C', hover: '#C5001B', fill: '#FA500E', fillForeground: '#171717', dark: '#FA500E', glow: '#FFE4A2', pixels: ['#9F281B', '#D93612', '#FA500E', '#FF7610', '#FF9614', '#FFBD2E'] },
 	lime: { fr: 'Lime', en: 'Lime', light: '#4D7C0F', hover: '#3F6212', dark: '#A3E635', glow: '#D9F99D', pixels: ['#365314', '#3F6212', '#65A30D', '#84CC16', '#A3E635', '#D9F99D'] },
 	emerald: { fr: 'Émeraude', en: 'Emerald', light: '#047857', hover: '#065F46', dark: '#34D399', glow: '#A7F3D0', pixels: ['#064E3B', '#065F46', '#059669', '#10B981', '#34D399', '#A7F3D0'] },
 	petrol: { fr: 'Pétrole', en: 'Petrol', light: '#0E7490', hover: '#155E75', dark: '#22D3EE', glow: '#A5F3FC', pixels: ['#164E63', '#155E75', '#0891B2', '#06B6D4', '#22D3EE', '#A5F3FC'] },

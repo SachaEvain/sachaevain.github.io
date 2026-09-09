@@ -42,7 +42,7 @@ const alternateUrl = new URL(resolvedAlternatePath, Astro.site);
 const frUrl = locale === 'fr' ? canonicalUrl : alternateUrl;
 const enUrl = locale === 'en' ? canonicalUrl : alternateUrl;
 const paletteStyles = Object.entries(PALETTES).map(([name, palette]) =>
-	`:root[data-palette="${name}"] { --accent-light: ${palette.light}; --accent-light-hover: ${palette.hover}; --accent-dark: ${palette.dark}; --pixel-glow: ${palette.glow}; ${palette.pixels.map((color, index) => `--pixel-${index}: ${color};`).join(' ')} }`,
+	`:root[data-palette="${name}"] { --accent-light: ${palette.light}; --accent-light-fill: ${'fill' in palette ? palette.fill : palette.light}; --accent-light-fill-foreground: ${'fillForeground' in palette ? palette.fillForeground : '#FFFFFF'}; --cover-background: ${'fill' in palette ? palette.fill : palette.pixels[4]}; --accent-light-hover: ${palette.hover}; --accent-dark: ${palette.dark}; --pixel-glow: ${palette.glow}; ${palette.pixels.map((color, index) => `--pixel-${index}: ${color};`).join(' ')} }`,
 ).join('\n');
 const rssPath = localizedPath(locale, '/rss.xml');
 ---

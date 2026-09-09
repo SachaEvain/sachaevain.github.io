@@ -15,10 +15,6 @@ const words = text.split(' ').map((word) =>
 				variant === 'hero'
 					? 40 + index * (1 + ((index * 7) % 5)) * 5
 					: 40 + ((index * 83) % 280),
-			roll:
-				variant === 'hero' &&
-				!['y', 'p', 'q'].includes(character.toLowerCase()) &&
-				(index % 5 === 0 || index % 8 === 0),
 		};
 	}),
 );
@@ -30,14 +26,13 @@ const words = text.split(' ').map((word) =>
 			<>
 				{wordIndex > 0 && ' '}
 				<span class="animated-title__word" aria-hidden="true">
-					{word.map(({ character, delay, roll }) => (
+					{word.map(({ character, delay }) => (
 						<span class="animated-title__mask">
 							<span
-								class:list={['animated-title__char', { 'animated-title__char--roll': roll }]}
+								class="animated-title__char"
 								style={`--char-delay: ${delay}ms`}
 							>
 								{character}
-								{roll && <><br />{character}</>}
 							</span>
 						</span>
 					))}
