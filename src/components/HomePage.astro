@@ -28,7 +28,11 @@ const alternatePath = localizedPath(otherLocale(locale));
 	<section class="hero home-hero">
 		<HomeSystemVisual locale={locale} />
 		<div class="hero__content shell">
-			<p class="eyebrow">{text.heroEyebrow}</p>
+			<p class="eyebrow hero__identity">
+				<span>{text.heroEyebrow}</span>
+				<span aria-hidden="true">·</span>
+				<span>FREELANCE ENGINEER</span>
+			</p>
 			<AnimatedTitle text={text.heroTitle} variant="hero" />
 			<p class="hero__intro">{text.heroIntroduction}</p>
 			<div class="hero__actions">
@@ -102,5 +106,12 @@ const alternatePath = localizedPath(otherLocale(locale));
 
 	.home-hero .hero__actions {
 		justify-content: center;
+	}
+
+	.hero__identity {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem 0.75rem;
 	}
 </style>
