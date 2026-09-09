@@ -10,7 +10,7 @@ import remarkMath from 'remark-math';
 export default defineConfig({
 	site: 'https://sachaevain.github.io',
 	output: 'static',
-	trailingSlash: 'always',
+	trailingSlash: 'ignore',
 	integrations: [mdx(), sitemap()],
 	markdown: {
 		processor: unified({

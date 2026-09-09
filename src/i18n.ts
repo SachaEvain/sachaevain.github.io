@@ -5,9 +5,9 @@ export type Locale = (typeof locales)[number];
 const fr = {
 	siteName: 'Sacha Evain',
 	siteDescription: '[SITE_DESCRIPTION_FR]',
-	skipToContent: '[SKIP_TO_CONTENT_FR]',
-	navigation: '[NAVIGATION_FR]',
-	language: '[LANGUAGE_FR]',
+	skipToContent: 'Aller au contenu',
+	navigation: 'Navigation principale',
+	language: 'Langue',
 	theme: 'Thème',
 	themeSystem: 'Système',
 	themeLight: 'Clair',
@@ -71,17 +71,17 @@ const fr = {
 	contactCta: 'Un projet ML en tête ?',
     footer: 'Sacha Evain · Ingénieur Machine Learning · Lille, France',
     rss: 'Flux RSS',
-	notFoundTitle: '[NOT_FOUND_TITLE_FR]',
-	notFoundDescription: '[NOT_FOUND_DESCRIPTION_FR]',
-	backHome: '[BACK_HOME_FR]',
+	notFoundTitle: 'Cette page est introuvable.',
+	notFoundDescription: 'Le lien est peut-être incorrect ou la page a été déplacée.',
+	backHome: 'Retour à l’accueil',
 };
 
 const en: typeof fr = {
 	siteName: 'Sacha Evain',
 	siteDescription: '[SITE_DESCRIPTION_EN]',
-	skipToContent: '[SKIP_TO_CONTENT_EN]',
-	navigation: '[NAVIGATION_EN]',
-	language: '[LANGUAGE_EN]',
+	skipToContent: 'Skip to content',
+	navigation: 'Main navigation',
+	language: 'Language',
 	theme: 'Theme',
 	themeSystem: 'System',
 	themeLight: 'Light',
@@ -145,9 +145,9 @@ const en: typeof fr = {
 	contactCta: 'Have an ML project in mind?',
     footer: 'Sacha Evain · Machine Learning Engineer · Lille, France',
     rss: 'RSS feed',
-	notFoundTitle: '[NOT_FOUND_TITLE_EN]',
-	notFoundDescription: '[NOT_FOUND_DESCRIPTION_EN]',
-	backHome: '[BACK_HOME_EN]',
+	notFoundTitle: 'Page not found.',
+	notFoundDescription: 'The link may be incorrect, or the page may have moved.',
+	backHome: 'Back to home',
 };
 
 export const copy = { fr, en } as const;

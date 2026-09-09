@@ -1,23 +1,83 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 import { copy, localizedPath } from '../i18n';
-
-const text = copy.fr;
 ---
 
 <BaseLayout
 	locale="fr"
-	title={text.notFoundTitle}
-	description={text.notFoundDescription}
-	alternatePath={localizedPath('en')}
+	title={copy.fr.notFoundTitle}
+	description={copy.fr.notFoundDescription}
+	alternatePath={`${localizedPath('fr', '/404.html')}?lang=en`}
+	noindex
 >
 	<section class="not-found shell">
-		<p class="eyebrow">404</p>
-		<h1>{text.notFoundTitle}</h1>
-		<p>{text.notFoundDescription}</p>
-		<div class="button-row">
-			<a class="button" href={localizedPath('fr')}>{text.backHome}</a>
-			<a class="button button--secondary" href={localizedPath('en')}>{copy.en.backHome}</a>
-		</div>
+		<svg class="not-found__art" viewBox="0 0 240 112" aria-hidden="true" shape-rendering="crispEdges">
+			<defs>
+				<path id="digits" d="M24 16h12v36h24V16h12v72H60V64H24ZM96 16h48v12h-36v48h24V28h12v60H96ZM168 16h12v36h24V16h12v72h-12V64h-36Z" />
+				<clipPath id="digits-clip"><use href="#digits" /></clipPath>
+			</defs>
+			<use href="#digits" x="4" y="4" fill="#9F281B" />
+			<g clip-path="url(#digits-clip)">
+				<path fill="#FFBD2E" d="M0 16h240v12H0Z" />
+				<path fill="#FF9614" d="M0 28h240v12H0Z" />
+				<path fill="#FF7610" d="M0 40h240v16H0Z" />
+				<path fill="#FA500E" d="M0 56h240v20H0Z" />
+				<path fill="#D93612" d="M0 76h240v12H0Z" />
+			</g>
+			<path fill="#FFBD2E" d="M8 32h4v4H8ZM224 8h6v6h-6Z" />
+			<path fill="#FA500E" d="M80 96h6v6h-6ZM228 76h4v4h-4Z" />
+		</svg>
+		{(['fr', 'en'] as const).map((locale) => (
+			<div class="not-found__copy" lang={locale}>
+				<h1><span class="not-found__code">404 — </span>{copy[locale].notFoundTitle}</h1>
+				<p>{copy[locale].notFoundDescription}</p>
+				<div class="button-row">
+					<a class="button" href={localizedPath(locale)}>{copy[locale].backHome}<span aria-hidden="true"> ↗</span></a>
+					<a class="not-found__projects" href={localizedPath(locale, '/portfolio/')}>{copy[locale].viewPortfolio}<span aria-hidden="true"> →</span></a>
+				</div>
+			</div>
+		))}
 	</section>
+	<template id="english-404-chrome">
+		<Header locale="en" alternatePath={`${localizedPath('fr', '/404.html')}?lang=fr`} />
+		<Footer locale="en" />
+	</template>
+	<script is:inline define:vars={{ englishRoot: localizedPath('en'), title: copy.en.notFoundTitle, description: copy.en.notFoundDescription, siteName: copy.en.siteName, skipLabel: copy.en.skipToContent }}>
+		// GitHub Pages serves one 404.html for every missing URL.
+		const language = new URLSearchParams(location.search).get('lang');
+		if (language === 'en' || (language !== 'fr' && location.pathname.startsWith(englishRoot))) {
+			document.documentElement.lang = 'en';
+			document.querySelector('.skip-link').textContent = skipLabel;
+			document.title = `${title} · ${siteName}`;
+			document.querySelector('meta[name="description"]').content = description;
+			const template = document.getElementById('english-404-chrome');
+			document.querySelector('.site-header').replaceWith(template.content.querySelector('header'));
+			// The layout footer is parsed after this inline script.
+			document.addEventListener('DOMContentLoaded', () => {
+				document.querySelector('body > footer').replaceWith(template.content.querySelector('footer'));
+			});
+		}
+	</script>
 </BaseLayout>
+
+<style>
+	.not-found {
+		min-height: calc(100svh - 13rem);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding-block: clamp(3rem, 8vh, 6rem);
+		text-align: center;
+	}
+	.not-found__art { width: min(100%, 36rem); margin-bottom: 1.5rem; }
+	.not-found__copy h1 { font-size: clamp(1.5rem, 4vw, 2.25rem); letter-spacing: -0.04em; }
+	.not-found__copy p { color: var(--muted); max-width: 32rem; margin: 1rem auto 2rem; }
+	.not-found__copy .button-row { justify-content: center; gap: 1.5rem; }
+	.not-found__projects { text-underline-offset: 0.3em; }
+	.not-found__code { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+	:global(html[lang='fr']) .not-found__copy[lang='en'],
+	:global(html[lang='en']) .not-found__copy[lang='fr'] { display: none; }
+</style>
