@@ -9,6 +9,8 @@
 	--accent: #FA500E;
 	/* --accent-hover: #173ea8;	 */
 	--accent-hover: #C5001B;
+	/* --accent: #0346A1;
+	--accent-hover: #012A94; */
 	--accent-foreground: #fff;
 	--focus: #f59e0b;
 	--nav-background: var(--background);
@@ -363,7 +365,7 @@ h3 {
 
 .button--secondary {
 	border-color: var(--border);
-	background: transparent;
+	background: var(--background);
 	color: var(--text);
 }
 

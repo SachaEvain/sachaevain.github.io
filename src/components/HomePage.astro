@@ -27,8 +27,9 @@ const alternatePath = localizedPath(otherLocale(locale));
 	description={text.siteDescription}
 	alternatePath={alternatePath}
 >
-	<section class="hero shell">
-		<div class="hero__content">
+	<section class="hero home-hero">
+		<HomeSystemVisual locale={locale} />
+		<div class="hero__content shell">
 			<p class="eyebrow">{text.heroEyebrow}</p>
 			<AnimatedTitle text={text.heroTitle} variant="hero" />
 			<p class="hero__intro">{text.heroIntroduction}</p>
@@ -37,7 +38,6 @@ const alternatePath = localizedPath(otherLocale(locale));
 				<a class="button button--secondary" href={localizedPath(locale, '/cv/')}>{text.viewCv}</a>
 			</div>
 		</div>
-		<HomeSystemVisual />
 	</section>
 
 	{
@@ -82,3 +82,36 @@ const alternatePath = localizedPath(otherLocale(locale));
 		<a class="button" href={localizedPath(locale, '/contact/')}>{text.contact}</a>
 	</section>
 </BaseLayout>
+
+<style>
+	.home-hero + .section {
+		border-top: 0;
+	}
+
+	.home-hero {
+		position: relative;
+		isolation: isolate;
+		display: grid;
+		grid-template-columns: 1fr;
+		place-items: center;
+		min-height: min(50rem, 85svh);
+		padding-block: clamp(5rem, 10vw, 8rem);
+		overflow: hidden;
+		text-align: center;
+	}
+
+	.home-hero .hero__content {
+		position: relative;
+		z-index: 1;
+		max-width: 58rem;
+	}
+
+	.home-hero :global(h1),
+	.home-hero .hero__intro {
+		margin-inline: auto;
+	}
+
+	.home-hero .hero__actions {
+		justify-content: center;
+	}
+</style>

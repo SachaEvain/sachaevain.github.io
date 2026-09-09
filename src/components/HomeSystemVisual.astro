@@ -1,256 +1,314 @@
-<div class="system-visual" aria-hidden="true">
-	<div class="system-visual__grid"></div>
-	<div class="system-visual__label">TRAIN → SERVE</div>
+---
+import type { Locale } from '../i18n';
 
-	<div class="system-node system-node--data">
-		<span>01</span>
-		<strong>DATA</strong>
-		<div class="system-node__bars"><i></i><i></i><i></i></div>
-	</div>
+interface Props {
+	locale: Locale;
+}
 
-	<div class="system-flow system-flow--input"><i></i></div>
+const { locale } = Astro.props;
+---
 
-	<div class="system-node system-node--model">
-		<span>02</span>
-		<strong>MODEL</strong>
-		<div class="system-node__matrix">
-			<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-		</div>
-	</div>
+<neural-network class="neural-visual">
+	<label class="neural-visual__control">
+		<input
+			type="checkbox"
+			aria-label={locale === 'fr' ? 'Mettre l’animation en pause' : 'Pause animation'}
+		/>
+		<svg viewBox="0 0 16 16" aria-hidden="true">
+			<path class="pause-icon" d="M5 3v10M11 3v10" />
+			<path class="play-icon" d="m5 3 8 5-8 5Z" />
+		</svg>
+	</label>
+	<canvas class="neural-visual__scene" width="600" height="450" aria-hidden="true"></canvas>
+</neural-network>
+<script>
+	class NeuralNetwork extends HTMLElement {
+		connectedCallback(): void {
+			const canvas = this.querySelector('canvas')!;
+			const context = canvas.getContext('2d')!;
+			const pause = this.querySelector('input')!;
+			const hero = this.parentElement!;
+			const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+			// Rasterize the soft edges and glow once, on small surfaces rather than the full header.
+			const sprites = ['#ee6328', '#c4c0b4', '#ffe4b0'].map((color, index) =>
+				[0, 1.5, 3].map((blur) => {
+					const sprite = document.createElement('canvas');
+					sprite.width = sprite.height = 64;
+					const brush = sprite.getContext('2d')!;
+					brush.filter = `blur(${blur}px)`;
+					if (index === 2) {
+						brush.shadowColor = 'rgb(255 110 28 / 50%)';
+						brush.shadowBlur = 10;
+					}
+					brush.fillStyle = color;
+					brush.fillRect(24, 24, 16, 16);
+					return sprite;
+				}),
+			);
+			const trail = document.createElement('canvas');
+			trail.width = 64;
+			trail.height = 8;
+			const trailContext = trail.getContext('2d')!;
+			const gradient = trailContext.createLinearGradient(0, 0, 64, 0);
+			gradient.addColorStop(0, 'rgb(244 91 25 / 0%)');
+			gradient.addColorStop(0.7, '#f47b28');
+			gradient.addColorStop(1, '#ffdc91');
+			trailContext.fillStyle = gradient;
+			trailContext.fillRect(0, 2, 64, 4);
+			// Original spatial network inspired by https://mistral.ai/news/magistral/.
+			let seed = 417;
+			const random = (): number => {
+				seed = (seed * 16807) % 2147483647;
+				return (seed - 1) / 2147483646;
+			};
+			const nodes = Array.from({ length: 108 }, (_, index) => ({
+				x: (random() - 0.5) * 1500,
+				y: (random() - 0.5) * 440,
+				z: random() * 1150 - 400,
+				phase: random() * Math.PI * 2,
+				speed: 0.045 + random() * 0.04,
+				pale: index % 9 === 0,
+			}));
+			[
+				{ x: -315, y: -95, z: -550 },
+				{ x: 250, y: -170, z: -480 },
+				{ x: -370, y: -210, z: -430 },
+			].forEach((position, index) => Object.assign(nodes[index], position));
+			// ponytail: one-time pairwise search for 108 nodes; use a spatial index for larger clouds.
+			const links = nodes.flatMap((node, from) => nodes
+				.map((other, to) => ({ to, distance: Math.hypot(node.x - other.x, node.y - other.y, node.z - other.z) }))
+				.filter(({ to }) => to !== from)
+				.sort((a, b) => a.distance - b.distance)
+				.filter((_, rank) => rank < 4 || rank === 12)
+				.filter(({ to }) => from < to)
+				.map(({ to }) => ({ from, to, offset: random() * 28, duration: 2.2 + random() * 2, rest: 13 + random() * 16 })),
+			);
+			let time = 0;
+			let lastFrame = 0;
+			let frame = 0;
+			let nextDraw = 0;
+			let visible = false;
+			let sceneWidth = 600;
+			let sceneHeight = 450;
+			const pointer = { x: 0, y: 0 };
+			const target = { x: 0, y: 0 };
+			const movePointer = (event: PointerEvent): void => {
+				if (event.pointerType === 'touch') return;
+				const bounds = hero.getBoundingClientRect();
+				target.x = Math.max(-1, Math.min(1, (event.clientX - bounds.left) / bounds.width * 2 - 1));
+				target.y = Math.max(-1, Math.min(1, (event.clientY - bounds.top) / bounds.height * 2 - 1));
+			};
+			const resetPointer = (): void => {
+				target.x = 0;
+				target.y = 0;
+			};
+			const opacityAt = (x: number, y: number): number => {
+				const radius = Math.hypot((x - sceneWidth / 2) / (sceneWidth * 0.38), (y - sceneHeight / 2) / (sceneHeight * 0.65));
+				const center = Math.min(1, Math.max(0.16, 0.16 + (radius - 0.15) * 0.98));
+				return center * Math.min(1, Math.max(0, (sceneHeight - y) / (sceneHeight * 0.18)));
+			};
 
-	<div class="system-flow system-flow--output"><i></i></div>
+			const draw = (): void => {
+				context.clearRect(0, 0, sceneWidth, sceneHeight);
+				const yaw = 0.12 + Math.sin(time * 0.045) * 0.065 + pointer.x * 0.045;
+				const pitch = 0.42 + Math.sin(time * 0.034) * 0.025 + pointer.y * 0.025;
+				const viewportScale = Math.max(0.65, Math.min(sceneWidth / 1280, 1.5));
+				const sinYaw = Math.sin(yaw), cosYaw = Math.cos(yaw);
+				const sinPitch = Math.sin(pitch), cosPitch = Math.cos(pitch);
+				const projected = nodes.map((node) => {
+					const drift = time * node.speed + node.phase;
+					const x = node.x + Math.sin(drift) * 16;
+					const y = node.y + Math.cos(drift * 0.7) * 18;
+					const z = node.z + Math.sin(drift * 0.6) * 20;
+					const rotatedX = x * cosYaw - z * sinYaw;
+					const rotatedZ = x * sinYaw + z * cosYaw;
+					const depth = y * sinPitch + rotatedZ * cosPitch;
+					const scale = 1000 / (1000 + depth);
+					return {
+						x: sceneWidth / 2 + rotatedX * scale * viewportScale,
+						y: sceneHeight * 0.56 + (y * cosPitch - rotatedZ * sinPitch) * scale * viewportScale,
+						scale, pale: node.pale, light: 0,
+					};
+				});
 
-	<div class="system-node system-node--api">
-		<span>03</span>
-		<strong>API</strong>
-		<div class="system-node__status"></div>
-	</div>
+				for (const link of links) {
+					const a = projected[link.from];
+					const b = projected[link.to];
+					if ((a.x < 0 && b.x < 0) || (a.x > sceneWidth && b.x > sceneWidth)
+						|| (a.y < 0 && b.y < 0) || (a.y > sceneHeight && b.y > sceneHeight)) continue;
+					const depth = Math.min(a.scale, b.scale);
+					context.globalAlpha = opacityAt((a.x + b.x) / 2, (a.y + b.y) / 2);
+					context.strokeStyle = `rgba(103, 99, 103, ${Math.min(0.3, depth * depth * 0.17)})`;
+					context.lineWidth = 0.65 * Math.min(depth, 1.4);
+					context.beginPath();
+					context.moveTo(a.x, a.y);
+					context.lineTo(b.x, b.y);
+					context.stroke();
+					const elapsed = (time + link.offset) % (link.duration + link.rest);
+					if (elapsed < link.duration) {
+						const progress = elapsed / link.duration;
+						const length = Math.hypot(b.x - a.x, b.y - a.y);
+						const headX = a.x + (b.x - a.x) * progress;
+						const headY = a.y + (b.y - a.y) * progress;
+						const tailLength = Math.min(progress * length, 18 * depth);
+						context.save();
+						context.globalAlpha = Math.min(1, depth) * opacityAt(headX, headY);
+						context.translate(headX, headY);
+						context.rotate(Math.atan2(b.y - a.y, b.x - a.x));
+						context.drawImage(trail, -tailLength, -1.5 * depth, tailLength, 3 * depth);
+						context.restore();
+					} else {
+						b.light = Math.max(b.light, Math.max(0, 1 - (elapsed - link.duration) / 0.9));
+					}
+				}
 
-	<div class="system-visual__pixels"></div>
-</div>
+				for (const node of projected.sort((a, b) => a.scale - b.scale)) {
+					const size = 5 * node.scale * node.scale;
+					if (node.x < -size * 2 || node.x > sceneWidth + size * 2
+						|| node.y < -size * 2 || node.y > sceneHeight + size * 2) continue;
+					const softness = node.scale > 1.8 ? 2 : node.scale > 1.35 ? 1 : 0;
+					context.globalAlpha = Math.min(0.95, 0.35 + node.scale * 0.4) * opacityAt(node.x, node.y);
+					context.drawImage(sprites[node.pale ? 1 : 0][softness], node.x - size * 2, node.y - size * 2, size * 4, size * 4);
+					if (node.light > 0) {
+						context.globalAlpha *= node.light;
+						context.drawImage(sprites[2][softness], node.x - size * 2, node.y - size * 2, size * 4, size * 4);
+					}
+				}
+				context.globalAlpha = 1;
+			};
+
+			const tick = (now: number): void => {
+				frame = requestAnimationFrame(tick);
+				if (now < nextDraw) return;
+				nextDraw = now + 1000 / 30 - 0.5;
+				const elapsed = lastFrame ? Math.min((now - lastFrame) / 1000, 0.1) : 0;
+				time += elapsed;
+				const easing = 1 - Math.exp(-elapsed * 3);
+				pointer.x += (target.x - pointer.x) * easing;
+				pointer.y += (target.y - pointer.y) * easing;
+				lastFrame = now;
+				draw();
+			};
+			const updateMotion = (): void => {
+				cancelAnimationFrame(frame);
+				lastFrame = 0;
+				nextDraw = 0;
+				if (visible && !document.hidden && !pause.checked && !reducedMotion.matches) {
+					frame = requestAnimationFrame(tick);
+				}
+			};
+			const resize = new ResizeObserver(() => {
+				const { width, height } = canvas.getBoundingClientRect();
+				if (!width || !height) return;
+				sceneWidth = width;
+				sceneHeight = height;
+				const ratio = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1_500_000 / (width * height)));
+				canvas.width = Math.floor(width * ratio);
+				canvas.height = Math.floor(height * ratio);
+				context.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+				draw();
+			});
+			const intersection = new IntersectionObserver(([entry]) => {
+				visible = entry.isIntersecting;
+				updateMotion();
+			});
+			resize.observe(canvas);
+			intersection.observe(this);
+			pause.addEventListener('change', updateMotion);
+			hero.addEventListener('pointermove', movePointer, { passive: true });
+			hero.addEventListener('pointerleave', resetPointer);
+			reducedMotion.addEventListener('change', updateMotion);
+			document.addEventListener('visibilitychange', updateMotion);
+			this.cleanup = () => {
+				cancelAnimationFrame(frame);
+				resize.disconnect();
+				intersection.disconnect();
+				pause.removeEventListener('change', updateMotion);
+				hero.removeEventListener('pointermove', movePointer);
+				hero.removeEventListener('pointerleave', resetPointer);
+				reducedMotion.removeEventListener('change', updateMotion);
+				document.removeEventListener('visibilitychange', updateMotion);
+			};
+		}
+
+		private cleanup?: () => void;
+
+		disconnectedCallback(): void {
+			this.cleanup?.();
+		}
+	}
+
+	if (!customElements.get('neural-network')) {
+		customElements.define('neural-network', NeuralNetwork);
+	}
+</script>
 
 <style>
-	.system-visual {
-		position: relative;
-		aspect-ratio: 4 / 3;
+	.neural-visual {
+		display: block;
+		position: absolute;
+		inset: 0;
 		overflow: hidden;
-		border: 1px solid var(--border);
-		border-radius: 0.15rem;
-		background: var(--accent);
-		color: #101011;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		pointer-events: none;
 	}
 
-	.system-visual__grid {
-		position: absolute;
-		inset: -25%;
-		background-image:
-			linear-gradient(to right, rgb(16 16 17 / 18%) 1px, transparent 1px),
-			linear-gradient(to bottom, rgb(16 16 17 / 18%) 1px, transparent 1px);
-		background-size: 20% 20%;
-		animation: grid-drift 14s linear infinite;
-	}
-
-	.system-visual__label {
-		position: absolute;
-		top: 7%;
-		left: 6%;
-		font-size: clamp(0.66rem, 1.2vw, 0.82rem);
-		font-weight: 700;
-		letter-spacing: 0.08em;
-	}
-
-	.system-node {
-		position: absolute;
-		top: 36%;
-		display: flex;
-		width: 22%;
-		aspect-ratio: 1;
-		flex-direction: column;
-		justify-content: space-between;
-		padding: 4%;
-		border: 2px solid #101011;
-		background: var(--accent);
-	}
-
-	.system-node > span,
-	.system-node > strong {
-		font-size: clamp(0.62rem, 1.5vw, 0.9rem);
-		line-height: 1;
-	}
-
-	.system-node--data {
-		left: 5%;
-	}
-
-	.system-node--model {
-		left: 36%;
-		width: 28%;
-		background: #101011;
-		color: #f8f8f6;
-		animation: model-pulse 3.6s ease-in-out infinite;
-	}
-
-	.system-node--api {
-		right: 5%;
-		background: var(--accent-hover);
-		color: #f8f8f6;
-		animation: api-pulse 3.6s ease-in-out infinite;
-	}
-
-	.system-node__bars {
-		display: grid;
-		align-items: end;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 12%;
-		height: 38%;
-	}
-
-	.system-node__bars i {
-		background: #101011;
-		animation: data-bars 1.8s ease-in-out infinite alternate;
-	}
-
-	.system-node__bars i:nth-child(1) {
-		height: 45%;
-	}
-
-	.system-node__bars i:nth-child(2) {
+	.neural-visual__scene {
+		display: block;
+		width: 100%;
 		height: 100%;
-		animation-delay: -0.6s;
 	}
 
-	.system-node__bars i:nth-child(3) {
-		height: 70%;
-		animation-delay: -1.2s;
-	}
-
-	.system-node__matrix {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 9%;
-	}
-
-	.system-node__matrix i {
-		aspect-ratio: 1;
-		background: var(--accent);
-		animation: matrix-step 1.8s steps(1) infinite;
-	}
-
-	.system-node__matrix i:nth-child(3n + 2) {
-		animation-delay: -0.6s;
-	}
-
-	.system-node__matrix i:nth-child(3n) {
-		animation-delay: -1.2s;
-	}
-
-	.system-node__status {
-		width: 28%;
-		aspect-ratio: 1;
-		margin-left: auto;
-		background: #f8f8f6;
-		box-shadow: -100% 0 #f8f8f6, -200% 0 #f8f8f6;
-	}
-
-	.system-flow {
+	.neural-visual__control {
 		position: absolute;
-		top: 50%;
 		z-index: 1;
-		width: 9%;
-		height: 2px;
-		background: #101011;
+		right: 1rem;
+		bottom: 1rem;
+		display: grid;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		color: var(--muted);
+		cursor: pointer;
+		pointer-events: auto;
 	}
 
-	.system-flow--input {
-		left: 27%;
-	}
-
-	.system-flow--output {
-		left: 64%;
-	}
-
-	.system-flow i {
+	.neural-visual__control input {
 		position: absolute;
-		top: -0.22rem;
-		left: 0;
-		width: 0.5rem;
-		aspect-ratio: 1;
-		background: #101011;
-		animation: data-flow 1.8s linear infinite;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		opacity: 0;
+		cursor: pointer;
 	}
 
-	.system-flow--output i {
-		animation-delay: -0.9s;
+	.neural-visual__control:has(:focus-visible) {
+		outline: 3px solid var(--focus);
+		outline-offset: 3px;
 	}
 
-	.system-visual__pixels {
-		position: absolute;
-		right: 8%;
-		bottom: 8%;
-		width: 0.55rem;
-		aspect-ratio: 1;
-		background: #101011;
-		box-shadow:
-			-0.55rem -0.55rem #101011,
-			-1.1rem -1.1rem #101011,
-			-0.55rem -1.65rem #101011;
-		animation: pixels-float 3.6s ease-in-out infinite;
+	.neural-visual__control:hover {
+		color: #ffd34e;
 	}
 
-	@keyframes grid-drift {
-		to {
-			transform: translate(20%, 20%);
-		}
+	.neural-visual__control svg {
+		width: 0.85rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		pointer-events: none;
 	}
 
-	@keyframes data-bars {
-		to {
-			transform: scaleY(0.45);
-		}
+	.play-icon,
+	.neural-visual__control:has(:checked) .pause-icon {
+		display: none;
 	}
 
-	@keyframes matrix-step {
-		0%,
-		32% {
-			opacity: 0.25;
-		}
-		33%,
-		100% {
-			opacity: 1;
-		}
-	}
-
-	@keyframes data-flow {
-		to {
-			left: calc(100% - 0.5rem);
-		}
-	}
-
-	@keyframes model-pulse {
-		45%,
-		55% {
-			transform: scale(1.04);
-		}
-	}
-
-	@keyframes api-pulse {
-		65%,
-		75% {
-			background: #101011;
-		}
-	}
-
-	@keyframes pixels-float {
-		50% {
-			transform: translateY(-0.8rem);
-		}
+	.neural-visual__control:has(:checked) .play-icon {
+		display: block;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.system-visual *,
-		.system-visual {
-			animation: none;
-		}
+		.neural-visual__control { display: none; }
 	}
 </style>
