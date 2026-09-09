@@ -34,6 +34,10 @@ npm run preview  # preview the build
 
 Validation intentionally fails when a post translation is missing or duplicated.
 
+## Homepage animation
+
+Set `SITE.homeAnimation` in `src/config.ts`: `pixels` (02, independent pulses with pixel relief), `paths` (01, connected pulses with flat nodes), or `both` (03, connected pulses with pixel relief). The setting applies to both languages; rebuild to publish a change.
+
 ## Article components
 
 Keep article-specific components in `src/components/posts/<slug>/`, with their TypeScript helpers alongside them and their images in a local `assets/` folder. Both language versions import from the same folder; PureLLM is the current example. Shared site components, including `CodexVisualization.astro`, remain in `src/components/`; covers shared by blog and portfolio remain in `src/assets/`.

@@ -1,5 +1,6 @@
 ---
 import type { Locale } from '../i18n';
+import { SITE } from '../config';
 
 interface Props {
 	locale: Locale;
@@ -8,7 +9,7 @@ interface Props {
 const { locale } = Astro.props;
 ---
 
-<neural-network class="neural-visual">
+<neural-network class="neural-visual" data-animation={SITE.homeAnimation}>
 	<label class="neural-visual__control">
 		<input
 			type="checkbox"
@@ -22,6 +23,7 @@ const { locale } = Astro.props;
 	<canvas class="neural-visual__scene" width="600" height="450" aria-hidden="true"></canvas>
 </neural-network>
 <script>
+	import { createAnimationSignals } from '../lib/home-animation';
 	class NeuralNetwork extends HTMLElement {
 		connectedCallback(): void {
 			const canvas = this.querySelector('canvas')!;
@@ -29,32 +31,11 @@ const { locale } = Astro.props;
 			const pause = this.querySelector('input')!;
 			const hero = this.parentElement!;
 			const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-			// Rasterize the soft edges and glow once, on small surfaces rather than the full header.
-			const sprites = ['#ee6328', '#c4c0b4', '#ffe4b0'].map((color, index) =>
-				[0, 1.5, 3].map((blur) => {
-					const sprite = document.createElement('canvas');
-					sprite.width = sprite.height = 64;
-					const brush = sprite.getContext('2d')!;
-					brush.filter = `blur(${blur}px)`;
-					if (index === 2) {
-						brush.shadowColor = 'rgb(255 110 28 / 50%)';
-						brush.shadowBlur = 10;
-					}
-					brush.fillStyle = color;
-					brush.fillRect(24, 24, 16, 16);
-					return sprite;
-				}),
-			);
-			const trail = document.createElement('canvas');
-			trail.width = 64;
-			trail.height = 8;
-			const trailContext = trail.getContext('2d')!;
-			const gradient = trailContext.createLinearGradient(0, 0, 64, 0);
-			gradient.addColorStop(0, 'rgb(244 91 25 / 0%)');
-			gradient.addColorStop(0.7, '#f47b28');
-			gradient.addColorStop(1, '#ffdc91');
-			trailContext.fillStyle = gradient;
-			trailContext.fillRect(0, 2, 64, 4);
+			const mode = this.dataset.animation;
+			if (mode !== 'paths' && mode !== 'pixels' && mode !== 'both') {
+				throw new Error(`Unknown homepage animation: ${mode}`);
+			}
+			const pixelRelief = mode !== 'paths';
 			// Original spatial network inspired by https://mistral.ai/news/magistral/.
 			let seed = 417;
 			const random = (): number => {
@@ -83,6 +64,7 @@ const { locale } = Astro.props;
 				.filter(({ to }) => from < to)
 				.map(({ to }) => ({ from, to, offset: random() * 28, duration: 2.2 + random() * 2, rest: 13 + random() * 16 })),
 			);
+			const signals = createAnimationSignals(links, mode !== 'pixels');
 			let time = 0;
 			let lastFrame = 0;
 			let frame = 0;
@@ -90,6 +72,13 @@ const { locale } = Astro.props;
 			let visible = false;
 			let sceneWidth = 600;
 			let sceneHeight = 450;
+			let scaleX = 1, scaleY = 1;
+			const fillPixelRect = (x: number, y: number, width: number, height: number): void => {
+				const left = Math.round(x * scaleX), top = Math.round(y * scaleY);
+				context.fillRect(left / scaleX, top / scaleY,
+					(Math.round((x + width) * scaleX) - left) / scaleX,
+					(Math.round((y + height) * scaleY) - top) / scaleY);
+			};
 			const pointer = { x: 0, y: 0 };
 			const target = { x: 0, y: 0 };
 			const movePointer = (event: PointerEvent): void => {
@@ -144,36 +133,56 @@ const { locale } = Astro.props;
 					context.moveTo(a.x, a.y);
 					context.lineTo(b.x, b.y);
 					context.stroke();
-					const elapsed = (time + link.offset) % (link.duration + link.rest);
-					if (elapsed < link.duration) {
-						const progress = elapsed / link.duration;
-						const length = Math.hypot(b.x - a.x, b.y - a.y);
-						const headX = a.x + (b.x - a.x) * progress;
-						const headY = a.y + (b.y - a.y) * progress;
-						const tailLength = Math.min(progress * length, 18 * depth);
-						context.save();
-						context.globalAlpha = Math.min(1, depth) * opacityAt(headX, headY);
-						context.translate(headX, headY);
-						context.rotate(Math.atan2(b.y - a.y, b.x - a.x));
-						context.drawImage(trail, -tailLength, -1.5 * depth, tailLength, 3 * depth);
-						context.restore();
-					} else {
-						b.light = Math.max(b.light, Math.max(0, 1 - (elapsed - link.duration) / 0.9));
+				}
+
+				for (const signal of signals) {
+					const a = projected[signal.from];
+					const b = projected[signal.to];
+					const elapsed = (time + signal.offset) % signal.period - signal.start;
+					if (elapsed < 0 || elapsed > signal.duration + 0.9) continue;
+					if (elapsed >= signal.duration) {
+						b.light = Math.max(b.light, 1 - (elapsed - signal.duration) / 0.9);
+						continue;
+					}
+					const progress = elapsed / signal.duration;
+					const depth = Math.min(a.scale, b.scale);
+					for (let pixel = 4; pixel >= 0; pixel--) {
+						const position = Math.max(0, progress - pixel * 0.025);
+						const x = a.x + (b.x - a.x) * position;
+						const y = a.y + (b.y - a.y) * position;
+						const size = Math.max(1, Math.round((pixel === 0 ? 3 : 2) * depth));
+						context.globalAlpha = (1 - pixel / 5) * Math.min(1, depth) * opacityAt(x, y);
+						context.fillStyle = pixel === 0 ? '#FFBD2E' : '#FA500E';
+						fillPixelRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
 					}
 				}
 
 				for (const node of projected.sort((a, b) => a.scale - b.scale)) {
-					const size = 5 * node.scale * node.scale;
-					if (node.x < -size * 2 || node.x > sceneWidth + size * 2
-						|| node.y < -size * 2 || node.y > sceneHeight + size * 2) continue;
-					const softness = node.scale > 1.8 ? 2 : node.scale > 1.35 ? 1 : 0;
+					const size = Math.max(2, Math.round(5 * node.scale * node.scale));
+					if (node.x < -size || node.x > sceneWidth + size
+						|| node.y < -size || node.y > sceneHeight + size) continue;
+					const x = Math.round(node.x - size / 2), y = Math.round(node.y - size / 2);
+					const edge = Math.max(1, Math.round(size / 4));
 					context.globalAlpha = Math.min(0.95, 0.35 + node.scale * 0.4) * opacityAt(node.x, node.y);
-					context.drawImage(sprites[node.pale ? 1 : 0][softness], node.x - size * 2, node.y - size * 2, size * 4, size * 4);
+					if (pixelRelief) {
+						context.fillStyle = node.pale ? '#626262' : '#9F281B';
+						fillPixelRect(x + edge, y + edge, size, size);
+					}
+					context.fillStyle = node.pale ? '#c4c0b4' : '#FA500E';
+					fillPixelRect(x, y, size, size);
+					if (pixelRelief) {
+						context.fillStyle = node.pale ? '#e8e4d8' : '#FFBD2E';
+						fillPixelRect(x, y, size, edge);
+						context.fillStyle = node.pale ? '#9b9b9f' : '#D93612';
+						fillPixelRect(x, y + size - edge, size, edge);
+					}
 					if (node.light > 0) {
 						context.globalAlpha *= node.light;
-						context.drawImage(sprites[2][softness], node.x - size * 2, node.y - size * 2, size * 4, size * 4);
+						context.fillStyle = '#FFE4A2';
+						fillPixelRect(x, y, size, size);
 					}
 				}
+
 				context.globalAlpha = 1;
 			};
 
@@ -202,10 +211,12 @@ const { locale } = Astro.props;
 				if (!width || !height) return;
 				sceneWidth = width;
 				sceneHeight = height;
-				const ratio = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1_500_000 / (width * height)));
-				canvas.width = Math.floor(width * ratio);
-				canvas.height = Math.floor(height * ratio);
-				context.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+				const ratio = devicePixelRatio || 1;
+				canvas.width = Math.ceil(width * ratio);
+				canvas.height = Math.ceil(height * ratio);
+				scaleX = canvas.width / width;
+				scaleY = canvas.height / height;
+				context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
 				draw();
 			});
 			const intersection = new IntersectionObserver(([entry]) => {
