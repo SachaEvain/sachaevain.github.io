@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import CoverImage from './CoverImage.astro';
 import { withBase } from '../i18n';
 import type { Post } from '../lib/posts';
 
@@ -16,7 +16,7 @@ const visualName = post.data.translationKey.replaceAll('-', ' ').toUpperCase();
 <div class="editorial-card__visual" aria-hidden="true">
 	{
 		post.data.cover ? (
-			<Image src={post.data.cover} alt="" loading={featured ? 'eager' : 'lazy'} />
+			<CoverImage src={post.data.cover} alt="" loading={featured ? 'eager' : 'lazy'} />
 		) : post.data.visualization ? (
 			<iframe
 				src={withBase(post.data.visualization)}

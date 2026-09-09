@@ -1,4 +1,6 @@
 ---
+import { PALETTES } from '../lib/palettes';
+import { SITE } from '../config';
 import { copy, localizedPath, type Locale } from '../i18n';
 
 interface Props {
@@ -53,6 +55,12 @@ const isActive = (href: string): boolean =>
 				}
 			</div>
 
+			<select class="palette-switch" aria-label={locale === 'fr' ? 'Palette de couleurs' : 'Color palette'} data-palette-select>
+				{Object.entries(PALETTES).map(([value, palette]) => (
+					<option value={value} selected={value === SITE.palette}>{palette[locale]}</option>
+				))}
+			</select>
+
 			<div class="theme-switch" role="group" aria-label={text.theme}>
 				<button type="button" data-theme-value="system" aria-label={text.themeSystem} title={text.themeSystem}>
 					<svg viewBox="0 0 24 24" aria-hidden="true">
@@ -77,6 +85,23 @@ const isActive = (href: string): boolean =>
 </header>
 
 <script>
+	import logo from '../../public/logo.svg?raw';
+	const paletteSelect = document.querySelector<HTMLSelectElement>('[data-palette-select]')!;
+	const updatePalette = (): void => {
+		const styles = getComputedStyle(document.documentElement);
+		const colors = ['#9F281B', '#D93612', '#FA500E', '#FF7610', '#FF9614', '#FFBD2E'];
+		const svg = colors.reduce((source, color, index) => source.replaceAll(color, styles.getPropertyValue(`--pixel-${index}`).trim()), logo);
+		document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+		document.dispatchEvent(new Event('palettechange'));
+	};
+	paletteSelect.value = document.documentElement.dataset.palette!;
+	paletteSelect.addEventListener('change', () => {
+		document.documentElement.dataset.palette = paletteSelect.value;
+		localStorage.setItem('palette', paletteSelect.value);
+		updatePalette();
+	});
+	updatePalette();
+
 	const themeButtons = document.querySelectorAll('[data-theme-value]');
 	const activeTheme = document.documentElement.dataset.theme ?? 'system';
 

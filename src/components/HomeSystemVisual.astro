@@ -97,6 +97,14 @@ const { locale } = Astro.props;
 				return center * Math.min(1, Math.max(0, (sceneHeight - y) / (sceneHeight * 0.18)));
 			};
 
+			let colors: string[] = [];
+			let glow = '';
+			const readPalette = (): void => {
+				const styles = getComputedStyle(document.documentElement);
+				colors = Array.from({ length: 6 }, (_, index) => styles.getPropertyValue(`--pixel-${index}`).trim());
+				glow = styles.getPropertyValue('--pixel-glow').trim();
+			};
+			readPalette();
 			const draw = (): void => {
 				context.clearRect(0, 0, sceneWidth, sceneHeight);
 				const yaw = 0.12 + Math.sin(time * 0.045) * 0.065 + pointer.x * 0.045;
@@ -152,7 +160,7 @@ const { locale } = Astro.props;
 						const y = a.y + (b.y - a.y) * position;
 						const size = Math.max(1, Math.round((pixel === 0 ? 3 : 2) * depth));
 						context.globalAlpha = (1 - pixel / 5) * Math.min(1, depth) * opacityAt(x, y);
-						context.fillStyle = pixel === 0 ? '#FFBD2E' : '#FA500E';
+						context.fillStyle = pixel === 0 ? colors[5] : colors[2];
 						fillPixelRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
 					}
 				}
@@ -165,20 +173,20 @@ const { locale } = Astro.props;
 					const edge = Math.max(1, Math.round(size / 4));
 					context.globalAlpha = Math.min(0.95, 0.35 + node.scale * 0.4) * opacityAt(node.x, node.y);
 					if (pixelRelief) {
-						context.fillStyle = node.pale ? '#626262' : '#9F281B';
+						context.fillStyle = node.pale ? '#626262' : colors[0];
 						fillPixelRect(x + edge, y + edge, size, size);
 					}
-					context.fillStyle = node.pale ? '#c4c0b4' : '#FA500E';
+					context.fillStyle = node.pale ? '#c4c0b4' : colors[2];
 					fillPixelRect(x, y, size, size);
 					if (pixelRelief) {
-						context.fillStyle = node.pale ? '#e8e4d8' : '#FFBD2E';
+						context.fillStyle = node.pale ? '#e8e4d8' : colors[5];
 						fillPixelRect(x, y, size, edge);
-						context.fillStyle = node.pale ? '#9b9b9f' : '#D93612';
+						context.fillStyle = node.pale ? '#9b9b9f' : colors[1];
 						fillPixelRect(x, y + size - edge, size, edge);
 					}
 					if (node.light > 0) {
 						context.globalAlpha *= node.light;
-						context.fillStyle = '#FFE4A2';
+						context.fillStyle = glow;
 						fillPixelRect(x, y, size, size);
 					}
 				}
@@ -223,6 +231,8 @@ const { locale } = Astro.props;
 				visible = entry.isIntersecting;
 				updateMotion();
 			});
+			const updatePalette = (): void => { readPalette(); draw(); };
+			document.addEventListener('palettechange', updatePalette);
 			resize.observe(canvas);
 			intersection.observe(this);
 			pause.addEventListener('change', updateMotion);
@@ -233,6 +243,7 @@ const { locale } = Astro.props;
 			this.cleanup = () => {
 				cancelAnimationFrame(frame);
 				resize.disconnect();
+				document.removeEventListener('palettechange', updatePalette);
 				intersection.disconnect();
 				pause.removeEventListener('change', updateMotion);
 				hero.removeEventListener('pointermove', movePointer);
@@ -299,7 +310,7 @@ const { locale } = Astro.props;
 	}
 
 	.neural-visual__control:hover {
-		color: #ffd34e;
+		color: var(--pixel-5);
 	}
 
 	.neural-visual__control svg {

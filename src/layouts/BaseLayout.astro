@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css';
 import '../styles/global.css';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import { PALETTES } from '../lib/palettes';
 import { SITE } from '../config';
 import { copy, localizedPath, otherLocale, withBase, type Locale } from '../i18n';
 
@@ -40,15 +41,21 @@ const canonicalUrl = new URL(currentPath, Astro.site);
 const alternateUrl = new URL(resolvedAlternatePath, Astro.site);
 const frUrl = locale === 'fr' ? canonicalUrl : alternateUrl;
 const enUrl = locale === 'en' ? canonicalUrl : alternateUrl;
+const paletteStyles = Object.entries(PALETTES).map(([name, palette]) =>
+	`:root[data-palette="${name}"] { --accent-light: ${palette.light}; --accent-light-hover: ${palette.hover}; --accent-dark: ${palette.dark}; --pixel-glow: ${palette.glow}; ${palette.pixels.map((color, index) => `--pixel-${index}: ${color};`).join(' ')} }`,
+).join('\n');
 const rssPath = localizedPath(locale, '/rss.xml');
 ---
 
 <!doctype html>
-<html lang={locale}>
+<html lang={locale} data-palette={SITE.palette}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
-		<script is:inline>
+		<style is:inline set:html={paletteStyles}></style>
+		<script is:inline define:vars={{ paletteNames: Object.keys(PALETTES), defaultPalette: SITE.palette }}>
+			const savedPalette = localStorage.getItem('palette');
+			document.documentElement.dataset.palette = paletteNames.includes(savedPalette) ? savedPalette : defaultPalette;
 			const savedTheme = localStorage.getItem('theme');
 			document.documentElement.dataset.theme =
 				savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'system';

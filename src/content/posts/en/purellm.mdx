@@ -6,7 +6,7 @@ locale: en
 translationKey: purellm
 publishedAt: 2026-09-03
 updatedAt: 2026-09-09
-readingMinutes: 19
+readingMinutes: 22
 tags:
   - "LLM"
   - "Transformers"
@@ -26,15 +26,19 @@ import PurellmLearningCurve from '../../../components/posts/purellm/PurellmLearn
 
 I built PureLLM to understand the parts of a language model that disappear behind a training or generation API. That meant implementing the decoder in NumPy, including its backward pass, then building a PyTorch version with a complete path from raw text to a saved model and an inference service.
 
-I trained the 11-million-parameter PyTorch model on TinyStories for 10,000 steps on an RTX 4070. Its output went from broken words and fragments to recognizable sentences. Keeping a story coherent remained harder, even as validation loss continued to fall.
+I trained the 11-million-parameter PyTorch model on TinyStories for 10,000 steps on an RTX 4070. Its output went from broken words and fragments to recognizable sentences. Keeping a story coherent remained harder, even as validation loss—the prediction error on held-out text—continued to fall.
+
+[TinyStories](https://arxiv.org/abs/2305.07759) contains short synthetic stories in English, using vocabulary accessible to young children. This narrows the range of language to learn while leaving an interesting challenge: connecting characters, actions, and an ending. Here, the model learns to continue those texts; it is not trained to follow instructions as an assistant.
 
 That run is the thread through this article: how text becomes training examples, how the decoder learns from them, and what changes when it has to generate its own continuation. I use the NumPy implementation where following the gradients makes a mechanism easier to see.
 
+The central idea is simple: **the text supplies its own answers**. To get better at predicting the next token, the model has to learn patterns that make it predictable from the prefix: spelling, sentence structure, and associations between actions and characters. The same task repeats at every position; no grammar rules are written into the program.
+
 ## Turning text into training examples
 
-Tokenization fixes the units the model learns and the amount of text its context can hold. With a character tokenizer, the mapping is easy to inspect. A character becomes an integer, and an embedding lookup turns that integer into a learned vector. It keeps the vocabulary small, but a context of 256 tokens then contains only 256 characters.
+Tokenization fixes the units the model learns and the amount of text its context can hold. With a character tokenizer, the mapping is easy to inspect. A character becomes an integer, and an embedding table maps that integer to a learned vector. The ID is only an index: neighboring IDs do not necessarily represent tokens with similar meanings. It keeps the vocabulary small, but a context of 256 tokens then contains only 256 characters.
 
-The TinyStories recipe instead trains a byte-level tokenizer using byte pair encoding (BPE). Its starting vocabulary contains every possible byte, so UTF-8 text can be encoded without learning a separate vocabulary entry for every character. BPE then gives frequent adjacent sequences their own IDs. A fixed token budget can cover more text when common sequences collapse into fewer tokens, at the cost of more rows in the embedding and vocabulary projection.
+The TinyStories recipe instead trains a byte-level tokenizer using byte pair encoding (BPE). Its starting vocabulary contains every possible byte, so UTF-8 text can be encoded without learning a separate vocabulary entry for every character. At each step, BPE merges the most frequent pair of adjacent tokens and gives it a new ID. Later merges can build longer sequences from those tokens. A fixed token budget can cover more text when common sequences collapse into fewer tokens, at the cost of more rows in the embedding and vocabulary projection.
 
 I ran the repository's [`BytePairTokenizer`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/tokenization/bpe_tokenizer.py) on the toy corpus `banana banana`, with a target vocabulary of 260. Its four learned merges produce this progression for each word:
 
@@ -54,29 +58,39 @@ Byte coverage lets the tokenizer encode new text, but it does not force the mode
 
 The [TinyStories recipe](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/recipes/tinygpt/tiny_stories.toml) fits BPE on at most the first million training characters and trains the model on up to 20 million. The [resolver](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/tokenization/resolver.py) keys the tokenizer cache by version, target vocabulary size, and a hash of that fitting text. Validation text does not participate in fitting.
 
+The tokenizer is then fixed: training the network changes its vectors and other weights, not how text is split.
+
 Once the text is encoded, each window supplies its own supervision. For `abaca`, an input window `abac` has target `baca`: at each position, predict the following token. The [dataset](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/dataset.py) creates these two slices from the same token tensor. TinyStories supplies separate training and validation files, and windows are constructed within each split.
 
 ## Building a decoder I can inspect
 
-The [PyTorch model](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/model.py) follows the same path for every batch: look up embeddings, pass through the blocks, normalize once more, and project each position onto the vocabulary. Training uses the logits at all positions. Generation samples from the last position.
+The decoder turns each token into a representation enriched by its left context. A **forward pass** applies the model’s computations with its current weights. It produces **logits**: one raw score for each possible vocabulary token. Softmax turns those scores into positive probabilities that sum to one.
+
+The [PyTorch model](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/model.py) follows the same path for every batch, a group of windows processed together: look up embeddings, pass through the blocks, normalize once more, and project each position onto the vocabulary. Training uses the logits at all positions. Generation samples from the last position.
 
 <PurellmArchitecture locale="en" />
 
-For TinyStories, `D = 384`, `L = 6`, and `T` is at most 256. Six attention heads split each representation into groups of 64 coordinates. The run reached the target vocabulary of 1,024 and reports 11,021,056 parameters. The tensor shapes provide useful checks: each sublayer has to return width 384 for the residual addition to work.
+For TinyStories, `D = 384`, `L = 6`, and `T` is at most 256. Attention uses six heads of 64 coordinates. The run reached the target vocabulary of 1,024 and reports 11,021,056 parameters. The tensor shapes provide useful checks: each sublayer has to return width 384 for the residual addition to work.
 
-Attention lets a token build a representation from the positions it can see. Q is the learned vector used to look for a match; K is the learned vector offered for comparison; V is the information to combine once those matches have been scored. They are three projections of the same input, not three separate copies of the token IDs.
+### Attention: choosing which information to combine
+
+Attention lets a token build a representation from the positions it can see. Q is the learned vector used to look for a match; K is the learned vector offered for comparison; V is the information to combine once those matches have been scored. They are three projections of the same input, not three separate copies of the token IDs. Each head projects all 384 input coordinates into its own 64-dimensional Q, K, and V; it is not restricted to a slice of the initial embedding.
 
 For one query, the dot products against keys produce a row of scores. Wider heads sum more terms, which tends to increase the spread of those scores. Larger gaps make softmax concentrate more weight on its strongest matches. PureLLM divides the scores by the square root of the head dimension—8 for a 64-coordinate head—to compensate for that growth. It masks future positions, then applies softmax along the row. The resulting weights sum to one and form a weighted sum of the value vectors.
 
 <PurellmAttention locale="en" />
 
+These weights apply to **context positions**, not possible next tokens. The 50% assigned to `a₂` controls its contribution to the representation; it does not mean the model predicts `a` with 50% probability. The final vocabulary projection comes later.
+
 The matrix is also what makes training parallel across positions possible. The target for `a₂` is `c`, but the representation at `a₂` cannot read the input `c₃`. All rows can be computed together because the mask enforces that restriction. Generation has a different dependency: the next input token must first be sampled from the current prediction.
 
 In [NumPy attention](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/attention.py), the projections, scaled scores, triangular mask, softmax, and multiplication by V are explicit. The [PyTorch version](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/attention.py) produces Q, K, and V with one bias-free projection from `(B, T, 384)` to `(B, T, 1152)`, then reshapes each to `(B, 6, T, 64)`. It delegates the attention operation to `scaled_dot_product_attention`; PyTorch selects the available kernel. The six head outputs are concatenated back into `(B, T, 384)`, then `W_output` mixes their coordinates before the residual addition. The conceptual score matrix has `T × T` entries per head, even when a kernel avoids materializing it in full.
 
+### Transforming the representation while keeping a direct path
+
 The residual paths keep each block from having to replace its entire input. The attention branch contributes an update to `x`; the feed-forward branch contributes a second update. Before each branch, LayerNorm centers and rescales the coordinates **within each token**, then applies learned scale and bias. It does not normalize across tokens or across the batch. In the [pre-normalized block](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/transformer.py), the unnormalized residual remains available alongside those transformed inputs. Dropout acts on branch outputs during training; evaluation disables it.
 
-The feed-forward layer operates independently at each position. NumPy uses a GELU MLP. PyTorch's SwiGLU gives the same input two learned projections: one supplies values, the other modulates them coordinate by coordinate.
+Attention moves information between positions; the feed-forward layer then transforms the features gathered at each position, using the same weights for every token. It operates independently at each position, but its input already contains information about earlier tokens. NumPy uses a GELU MLP. PyTorch's SwiGLU gives the same input two learned projections: one supplies values, the other modulates them coordinate by coordinate.
 
 ```python
 gate, value = self.W1(x).chunk(2, dim=-1)
@@ -88,6 +102,8 @@ Since `silu(g) = g * sigmoid(g)`, the gate is a smooth multiplier rather than a 
 The final vocabulary projection can reuse the input embedding weights. The implementation assigns the same parameter object to both layers. Each vocabulary row then serves as a token representation on input and a vector against which the final hidden state is scored on output. At a vocabulary size of 1,024 and width 384, this saves 393,216 weights; the output bias remains separate. This sharing couples both uses during training.
 
 ### RoPE: position as a rotation inside attention
+
+The mask determines which positions are allowed, but does not directly provide their distance to the Q–K comparison. RoPE supplies that information in the TinyStories recipe.
 
 Start with two arrows in a plane. Their dot product depends on their lengths and the angle between them. Rotate both arrows by the same amount and their dot product stays unchanged. Rotate them by different amounts and their alignment changes.
 
@@ -130,7 +146,11 @@ Selecting `position_encoding = "rope"` also removes the learned position lookup 
 
 ## Making the model learn
 
-A forward pass ends with one vocabulary-sized vector of logits per position. The loss connects that vector to the next-token target. Assigning the target a high probability costs little; confidently predicting something else costs much more. Cross-entropy averages that penalty over the batch's token positions.
+A forward pass ends with one vocabulary-sized vector of logits per position. The loss connects that vector to the next-token target. Assigning the target a high probability costs little; confidently predicting something else costs much more. For a target assigned probability $p$, the penalty is $-\ln(p)$: about 2.30 at 10%, versus 0.22 at 80%. Cross-entropy averages this penalty over the token positions in the batch.
+
+### From prediction error to gradients
+
+Backpropagation measures how each parameter contributes to this error by working backward through the forward pass. The gradient indicates the direction in which loss changes; the optimizer uses it to adjust parameters toward locally lower loss.
 
 The gradient of ordinary softmax–cross-entropy has a useful interpretation: copy the probabilities, subtract one at the target index, then divide by the number of predicted tokens. For a target assigned probability 0.1, its component is proportional to `−0.9`; competing tokens have positive components. This is the local signal to raise the target logit and lower the others. The actual parameter update combines these signals across positions and shared weights.
 
@@ -152,9 +172,13 @@ np.add.at(
 )
 ```
 
+### Updating the weights
+
 Those gradients still need an update rule. The local [Adam implementation](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/optimizer/adam.py) keeps moving averages of gradients and squared gradients for each parameter, corrects their initial bias, and uses them to scale updates. This is why resuming with weights alone is insufficient: the optimizer has a memory of the path taken to those weights. PyTorch uses AdamW with betas `(0.9, 0.95)` and configurable weight decay, which shrinks parameters separately from that adaptive gradient update.
 
 The [PyTorch training step](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/training.py) clears old gradients, computes the loss, backpropagates, clips the global gradient norm, and calls the optimizer. Clipping rescales the combined gradient vector if its norm exceeds the limit; it preserves its direction while bounding its size. Both implementations support this operation. The learning-rate schedule then controls the overall update scale: warm up from a smaller rate, then decay toward a configured minimum with a cosine curve. In this run, the learning rate reached `3 × 10⁻⁴` after 500 warmup steps, then decayed to `3 × 10⁻⁵` at step 10,000. Warmup occupied the first 5% of training.
+
+### Fitting training on the GPU
 
 The PyTorch training forward is wrapped in `torch.compile` and disables the generation cache. Compilation can specialize tensor execution, but its startup work matters for short runs. This experiment also uses `bf16` autocast for eligible operations. The model parameters and optimizer state are not all converted to bfloat16, so reduced-precision execution does not mean halving every part of the memory footprint.
 
@@ -166,7 +190,7 @@ The repository also has a [device-resident path](https://github.com/LimeSku/Pure
 
 *Code references use [revision `daa4c57`](https://github.com/LimeSku/PureLLM/tree/daa4c57adf588d721b7aaaf5365e8768694a2fef); the results below come from the saved configuration, metrics, and log for TinyStories run 2.*
 
-I evaluated the first 20 validation batches at step 1, every 250 steps, and at the final step. Reusing those windows lets me track prediction error on the same text throughout training. This is a fixed subset of validation, not a score over the entire file. Perplexity is `exp(loss)`, another scale for the same next-token prediction error.
+I evaluated the first 20 validation batches at step 1, every 250 steps, and at the final step. Reusing those windows lets me track prediction error on the same text throughout training. This is a fixed subset of validation, not a score over the entire file. Perplexity is `exp(loss)`, another scale for the same next-token prediction error. A uniform model over all 1,024 tokens would have loss `ln(1024) ≈ 6.93` and perplexity 1,024. This gives a reference for the start of the curve; comparing perplexities requires the same tokenizer and evaluation data.
 
 The RTX 4070 run used CUDA with `bf16` autocast, 20 million training characters, and one million validation characters. I extended the recipe to five epochs with a 10,000-step cap. At 2,351 batches per epoch, it completed four full epochs and part of the fifth. Batches of 16 with context 256 give 4,096 token predictions per update, or 40.96 million across the run, including repeated passes over the training text.
 
@@ -180,13 +204,19 @@ After excluding the first report, the median reported training throughput is abo
 
 ## Turning predictions into text
 
-Training supplies the correct next token at every position. During generation, the model must use its own previous choice as the next input. The decoder still produces logits; the sampling procedure decides how to turn the last row into a token.
+During training, each prediction uses tokens from the original text, even if the previous prediction was wrong. During generation, the model must use its own previous choice as the next input. The decoder still produces logits; the sampling procedure decides how to turn the last row into a token.
+
+The weights stay fixed throughout this loop: generating more text is not another round of training. An error can, however, change the context for later choices and take the continuation further from the expected text.
 
 In [`generate`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/generation.py), last-position logits are converted to float32 and divided by temperature. A temperature below one widens their differences and concentrates probability on the leaders; a higher temperature flattens the distribution. Positive temperature preserves their ranking. Top-k then retains only the highest-scoring candidates before softmax renormalizes them.
 
 <SamplingVisualization locale="en" />
 
+Lowering temperature concentrates the choices without correcting an inconsistency the model already favors. Top-k restricts the possibilities; it adds no knowledge.
+
 `torch.multinomial` draws from those probabilities. After top-k filtering, its result indexes the shortened candidate list, so `torch.gather` maps that index back to a vocabulary ID. The ID is appended to the sequence, and the process repeats. The loop runs for `max_new_tokens`; it has no EOS stopping condition. With `top_k=1`, the distribution has one candidate, making token selection deterministic even though it still uses the sampling function. The [CLI](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/scripts/generate.py) also accepts a seed for reproducible sampling on a fixed execution setup.
+
+### Reading continuations alongside the curve
 
 The training preview uses the first 16 validation tokens as a fixed prompt, resets seed 42, and samples 100 new tokens at temperature 0.8 without top-k filtering. The prompt is taken directly from the start of the validation file, rather than chosen as the beginning of a story. This is why the printed text starts with `u don't`.
 
@@ -208,7 +238,7 @@ For comparison, I have removed that shared opening from both outputs below. The 
 > exit.
 > The little girl stayed shy and continued to explore the forest and looked around until she reached the exit. The moral of the story is that it's ok to be respectful and that it is important to be
 
-The later sample maintains an action across several clauses, but its moral is only loosely connected to what happened. Nearby samples still produce phrases such as “the exercise of the trees” and repeat character descriptions. Both previews stop mid-sentence because they reach the 100-token limit. The model has learned much better sentence patterns; the remaining errors concern what those sentences mean together.
+The later sample maintains an action across several clauses, but its moral is only loosely connected to what happened. Nearby samples still produce phrases such as “the exercise of the trees” and repeat character descriptions. Both previews stop mid-sentence because they reach the 100-token limit. These excerpts show much better sentence patterns; the remaining errors concern what those sentences mean together. This fixed prompt supports a qualitative comparison, but is not enough to measure coherence across varied stories.
 
 ### Reusing the prefix with a KV cache
 
@@ -236,4 +266,8 @@ Request validation bounds the prompt and generation length and rejects invalid s
 
 The [KV cache check](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/tests/test_kv_cache.py) compares cached logits against a full-prefix forward pass for both position schemes. That checks whether reusing work preserves the prediction. The [API check](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/tests/test_api.py) loads a checkpoint and exercises generation through HTTP, covering the path from the saved model to a response.
 
-After 10,000 steps, the model forms sentences much more reliably than it maintains a story. The validation curve and the continuations expose different parts of that progress: prediction on a supplied prefix, and generation from the model’s own choices. The incoherent endings already appear within the 116-token preview, before the context window is full.
+## What this experiment taught me
+
+After 10,000 steps, the model forms sentences much more reliably than it maintains a story. The validation curve and the continuations expose different parts of that progress: prediction on a supplied prefix, and generation from the model’s own choices. The incoherent endings already appear within the 116-token preview, before the context window is full. These errors therefore cannot be attributed solely to context truncation.
+
+This connects the two implementations: NumPy makes the signal that changes the weights visible, while PyTorch lets me observe what those updates produce over a longer run. The cache and service carry the same computation through to a usable response. Judging the result requires keeping both views together: loss tells me whether real tokens become more probable; reading continuations shows what happens when the model has to choose the whole sequence.
