@@ -6,10 +6,10 @@ import { copy, localizedPath } from '../i18n';
 ---
 
 <BaseLayout
-	locale="fr"
-	title={copy.fr.notFoundTitle}
-	description={copy.fr.notFoundDescription}
-	alternatePath={`${localizedPath('fr', '/404.html')}?lang=en`}
+	locale="en"
+	title={copy.en.notFoundTitle}
+	description={copy.en.notFoundDescription}
+	alternatePath={`${localizedPath('en', '/404.html')}?lang=fr`}
 	noindex
 >
 	<section class="not-found shell">
@@ -40,19 +40,19 @@ import { copy, localizedPath } from '../i18n';
 			</div>
 		))}
 	</section>
-	<template id="english-404-chrome">
-		<Header locale="en" alternatePath={`${localizedPath('fr', '/404.html')}?lang=fr`} />
-		<Footer locale="en" />
+	<template id="french-404-chrome">
+		<Header locale="fr" alternatePath={`${localizedPath('en', '/404.html')}?lang=en`} />
+		<Footer locale="fr" />
 	</template>
-	<script is:inline define:vars={{ englishRoot: localizedPath('en'), title: copy.en.notFoundTitle, description: copy.en.notFoundDescription, siteName: copy.en.siteName, skipLabel: copy.en.skipToContent }}>
+	<script is:inline define:vars={{ frenchRoot: localizedPath('fr'), title: copy.fr.notFoundTitle, description: copy.fr.notFoundDescription, siteName: copy.fr.siteName, skipLabel: copy.fr.skipToContent }}>
 		// GitHub Pages serves one 404.html for every missing URL.
 		const language = new URLSearchParams(location.search).get('lang');
-		if (language === 'en' || (language !== 'fr' && location.pathname.startsWith(englishRoot))) {
-			document.documentElement.lang = 'en';
+		if (language === 'fr' || (language !== 'en' && location.pathname.startsWith(frenchRoot))) {
+			document.documentElement.lang = 'fr';
 			document.querySelector('.skip-link').textContent = skipLabel;
 			document.title = `${title} · ${siteName}`;
 			document.querySelector('meta[name="description"]').content = description;
-			const template = document.getElementById('english-404-chrome');
+			const template = document.getElementById('french-404-chrome');
 			document.querySelector('.site-header').replaceWith(template.content.querySelector('header'));
 			// The layout footer is parsed after this inline script.
 			document.addEventListener('DOMContentLoaded', () => {

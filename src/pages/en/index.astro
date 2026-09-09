@@ -1,5 +1,6 @@
 ---
-import HomePage from '../../components/HomePage.astro';
+import RedirectPage from '../../components/RedirectPage.astro';
+import { localizedPath } from '../../i18n';
+const destination = localizedPath('en', '/');
 ---
-
-<HomePage locale="en" />
+<RedirectPage destination={destination} />

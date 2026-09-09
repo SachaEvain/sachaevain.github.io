@@ -1,5 +1,6 @@
 ---
-import BlogPage from '../../../components/BlogPage.astro';
+import RedirectPage from '../../../components/RedirectPage.astro';
+import { localizedPath } from '../../../i18n';
+const destination = localizedPath('en', '/blog/');
 ---
-
-<BlogPage locale="en" />
+<RedirectPage destination={destination} />

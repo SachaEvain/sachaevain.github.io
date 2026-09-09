@@ -35,7 +35,7 @@ const currentPath = Astro.url.pathname;
 const alternateLocale = otherLocale(locale);
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const routePath = currentPath.startsWith(base) ? currentPath.slice(base.length) || '/' : currentPath;
-const logicalPath = locale === 'en' ? routePath.replace(/^\/en(?=\/|$)/, '') || '/' : routePath;
+const logicalPath = locale === 'fr' ? routePath.replace(/^\/fr(?=\/|$)/, '') || '/' : routePath;
 const resolvedAlternatePath = alternatePath ?? localizedPath(alternateLocale, logicalPath);
 const canonicalUrl = new URL(currentPath, Astro.site);
 const alternateUrl = new URL(resolvedAlternatePath, Astro.site);
@@ -77,7 +77,7 @@ const rssPath = localizedPath(locale, '/rss.xml');
 		<link rel="canonical" href={canonicalUrl} />
 		<link rel="alternate" hreflang="fr" href={frUrl} />
 		<link rel="alternate" hreflang="en" href={enUrl} />
-		<link rel="alternate" hreflang="x-default" href={frUrl} />
+		<link rel="alternate" hreflang="x-default" href={enUrl} />
 		<link rel="alternate" type="application/rss+xml" title={text.rss} href={rssPath} />
 		<title>{title} · {text.siteName}</title>
 	</head>

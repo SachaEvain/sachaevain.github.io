@@ -1,5 +1,6 @@
 ---
-import CvPage from '../../components/CvPage.astro';
+import RedirectPage from '../../components/RedirectPage.astro';
+import { localizedPath } from '../../i18n';
+const destination = localizedPath('en', '/cv/');
 ---
-
-<CvPage locale="en" />
+<RedirectPage destination={destination} />

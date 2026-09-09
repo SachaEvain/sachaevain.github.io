@@ -11,7 +11,7 @@ export default defineConfig({
 	site: 'https://sachaevain.github.io',
 	output: 'static',
 	trailingSlash: 'ignore',
-	integrations: [mdx(), sitemap()],
+	integrations: [mdx(), sitemap({ filter: (url) => !new URL(url).pathname.startsWith('/en/') })],
 	markdown: {
 		processor: unified({
 			remarkPlugins: [remarkMath],
@@ -20,7 +20,7 @@ export default defineConfig({
 	},
 	i18n: {
 		locales: ['fr', 'en'],
-		defaultLocale: 'fr',
+		defaultLocale: 'en',
 		routing: {
 			prefixDefaultLocale: false,
 		},

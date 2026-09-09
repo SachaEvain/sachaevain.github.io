@@ -1,10 +1,10 @@
 ---
-import RedirectPage from '../../../components/RedirectPage.astro';
 import type { CollectionEntry } from 'astro:content';
-import { getLocalizedPosts, postSlug, postPath } from '../../../lib/posts';
+import ArticlePage from '../../../components/ArticlePage.astro';
+import { getLocalizedPosts, postSlug } from '../../../lib/posts';
 
 export async function getStaticPaths() {
-	const posts = await getLocalizedPosts('en');
+	const posts = await getLocalizedPosts('fr');
 	return posts.map((post) => ({ params: { slug: postSlug(post) }, props: { post } }));
 }
 
@@ -13,6 +13,6 @@ interface Props {
 }
 
 const { post } = Astro.props;
-const destination = postPath(post);
 ---
-<RedirectPage destination={destination} />
+
+<ArticlePage locale="fr" post={post} />

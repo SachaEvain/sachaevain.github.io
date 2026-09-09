@@ -160,7 +160,7 @@ export function withBase(path: string): string {
 
 export function localizedPath(locale: Locale, path = '/'): string {
 	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-	return withBase(locale === 'fr' ? normalizedPath : `/en${normalizedPath}`);
+	return withBase(locale === 'en' ? normalizedPath : `/fr${normalizedPath}`);
 }
 
 export function otherLocale(locale: Locale): Locale {

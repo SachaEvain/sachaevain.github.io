@@ -1,6 +1,6 @@
 # ML portfolio and blog
 
-Bilingual static site built with Astro. French is served at the root and English under `/en/`. Some draft content is still represented by placeholders.
+Bilingual static site built with Astro. English is served at the root and French under `/fr/`. Legacy `/en/` pages redirect to the English root routes. Some draft content is still represented by placeholders.
 
 ## Environment
 
@@ -29,7 +29,7 @@ npm run preview  # preview the build
 - Articles and case studies are in `src/content/posts/fr/` and `src/content/posts/en/`.
 - Each translated article shares the same `translationKey` value.
 - The portfolio displays projects from `src/content/projects/fr/` and `src/content/projects/en/`.
-- Each project has a detail page at `/portfolio/<slug>/` (or `/en/portfolio/<slug>/`); its Markdown body provides the overview and capabilities. Translations share a `translationKey`.
+- Each project has a detail page at `/portfolio/<slug>/` (or `/fr/portfolio/<slug>/`); its Markdown body provides the overview and capabilities. Translations share a `translationKey`.
 - Articles and case studies remain in the blog. Project descriptions can link to related case studies.
 
 Validation intentionally fails when a post translation is missing or duplicated.

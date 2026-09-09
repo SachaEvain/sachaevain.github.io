@@ -1,5 +1,6 @@
 ---
-import ContactPage from '../../components/ContactPage.astro';
+import RedirectPage from '../../components/RedirectPage.astro';
+import { localizedPath } from '../../i18n';
+const destination = localizedPath('en', '/contact/');
 ---
-
-<ContactPage locale="en" />
+<RedirectPage destination={destination} />
