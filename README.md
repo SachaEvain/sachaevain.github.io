@@ -59,11 +59,11 @@ The visualization remains isolated from the site in a sandboxed iframe. Exports 
 
 ## Preparing for publication
 
-1. Update `site` and `base` in `astro.config.mjs` if the GitHub account or repository name changes.
+1. Use `SachaEvain/sachaevain.github.io` as the repository name to serve the site at `https://sachaevain.github.io/`. `astro.config.mjs` is configured for this root URL, with no repository path prefix.
 2. Replace all French and English placeholders.
 3. Replace the CVs at `public/cv/sacha-evain-cv-fr.pdf` and `public/cv/sacha-evain-cv-en.pdf` when needed; their download links are already enabled.
 4. Set `ready` to `true` in `src/config.ts` to allow indexing.
-5. Create the GitHub Pages repository and select **GitHub Actions** as the source.
+5. In the repository's **Settings → Pages**, select **GitHub Actions** as the source.
 6. Manually trigger the **Deploy to GitHub Pages** workflow.
 
 The workflow does not run on push unless that trigger is explicitly added.
