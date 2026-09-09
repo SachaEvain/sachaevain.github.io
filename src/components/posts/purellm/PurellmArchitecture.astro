@@ -1,0 +1,51 @@
+---
+import type { Locale } from '../../../i18n';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const fr = locale === 'fr';
+---
+
+<figure class="architecture">
+	<strong>{fr ? 'Le chemin d’un batch dans TinyGPT' : 'A batch through TinyGPT'}</strong>
+	<div class="path-end">
+		<span>{fr ? 'Identifiants' : 'Token IDs'} <code>(B, T)</code></span>
+		<span aria-hidden="true">→</span>
+		<span>Embedding <code>(B, T, D)</code></span>
+	</div>
+	<div class="down" aria-hidden="true">↓</div>
+	<div class="decoder">
+		<strong>{fr ? 'Bloc décodeur × L' : 'Decoder block × L'}</strong>
+		<div class="branch">
+			<small>{fr ? 'x continue par le chemin résiduel' : 'x continues along the residual path'}</small>
+			<div>LayerNorm → {fr ? 'Attention causale' : 'Causal attention'} → Dropout</div>
+			<div class="sum">+ x → h</div>
+		</div>
+		<div class="branch">
+			<small>{fr ? 'h continue par le chemin résiduel' : 'h continues along the residual path'}</small>
+			<div>LayerNorm → Feed-forward → Dropout</div>
+			<div class="sum">+ h → {fr ? 'sortie du bloc' : 'block output'}</div>
+		</div>
+		<small>{fr ? 'Même forme à chaque addition : (B, T, D)' : 'Same shape at each addition: (B, T, D)'}</small>
+	</div>
+	<div class="down" aria-hidden="true">↓</div>
+	<div class="path-end">
+		<span>LayerNorm</span><span aria-hidden="true">→</span>
+		<span>{fr ? 'Projection vocabulaire' : 'Vocabulary projection'} <code>(B, T, V)</code></span>
+	</div>
+	<figcaption>{fr
+		? 'B : batch, T : tokens, D : largeur, L : blocs, V : vocabulaire. Schéma PyTorch. NumPy conserve les deux chemins résiduels, avec GELU et sans ces couches de dropout. Positions : apprises en NumPy ; apprises ou RoPE en PyTorch.'
+		: 'B: batch, T: tokens, D: width, L: blocks, V: vocabulary. PyTorch path shown. NumPy keeps both residual paths, with GELU and without these dropout layers. Positions: learned in NumPy; learned or RoPE in PyTorch.'}</figcaption>
+</figure>
+
+<style>
+	.architecture { margin: 2rem 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+	.path-end { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem; margin-top: 1rem; text-align: center; }
+	.path-end code { display: block; }
+	.down { text-align: center; color: var(--accent); font-size: 1.5rem; }
+	.decoder { border: 1px solid var(--border); padding: 1rem; }
+	.branch { border-left: 2px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
+	.branch small { display: block; margin-bottom: .5rem; }
+	.sum { margin-top: .5rem; font-weight: 600; }
+	small, figcaption { color: var(--muted); font-size: .875rem; }
+	figcaption { margin-top: 1rem; }
+</style>

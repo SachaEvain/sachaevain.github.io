@@ -1,0 +1,120 @@
+---
+import { rotateRopePair } from './rope';
+import type { Locale } from '../../../i18n';
+
+interface Props {
+	locale: Locale;
+}
+
+const { locale } = Astro.props;
+const text = locale === 'fr' ? {
+	title: 'Même déplacement, même produit scalaire',
+	shift: 'Décaler les deux positions',
+	gap: 'Distance m − n',
+	query: 'Query Q · trait plein',
+	key: 'Key K · pointillés',
+	pair: 'Coordonnées',
+	score: 'Contribution au produit scalaire',
+	caption: 'Q et K partent ici de (1, 0) pour isoler l’effet des positions. Chaque cercle représente une paire de coordonnées d’une tête de dimension 64. Le vrai score additionne les 32 contributions, puis divise par √64 avant le softmax.',
+} : {
+	title: 'Same shift, same dot product',
+	shift: 'Shift both positions',
+	gap: 'Distance m − n',
+	query: 'Query Q · solid line',
+	key: 'Key K · dashed line',
+	pair: 'Coordinates',
+	score: 'Dot-product contribution',
+	caption: 'Q and K start at (1, 0) here to isolate the effect of position. Each circle represents one coordinate pair in a 64-dimensional head. The real score sums all 32 contributions, then divides by √64 before softmax.',
+};
+---
+
+<figure class="rope" data-rope>
+	<strong>{text.title}</strong>
+	<div class="rope-controls">
+		<label for={`rope-shift-${locale}`}>{text.shift}: <output data-shift-value>1</output>
+			<input id={`rope-shift-${locale}`} data-shift type="range" min="0" max="239" value="1" />
+		</label>
+		<label for={`rope-gap-${locale}`}>{text.gap}: <output data-gap-value>3</output>
+			<input id={`rope-gap-${locale}`} data-gap type="range" min="0" max="16" value="3" />
+		</label>
+	</div>
+	<div class="rope-legend"><span class="rope-query">{text.query}</span><span>{text.key}</span></div>
+	<div class="rope-pairs">
+		{[0, 8].map((pairIndex) => {
+			const query = rotateRopePair(4, pairIndex);
+			const key = rotateRopePair(1, pairIndex);
+			return <div data-pair={pairIndex}>
+				<div>{text.pair} ({2 * pairIndex}, {2 * pairIndex + 1})</div>
+				<small>ω = {pairIndex === 0 ? '1' : '0.1'} rad / token</small>
+				<svg viewBox="0 0 240 220" role="img" aria-label={`${text.pair} (${2 * pairIndex}, ${2 * pairIndex + 1})`}>
+					<circle class="rope-axis" cx="120" cy="110" r="80" />
+					<path class="rope-axis" d="M24 110H216 M120 14V206" />
+					<line class="rope-query" data-query x1="120" y1="110" x2={120 + 80 * query[0]} y2={110 - 80 * query[1]} />
+					<circle class="rope-query" data-query-tip cx={120 + 80 * query[0]} cy={110 - 80 * query[1]} r="5" />
+					<line class="rope-key" data-key x1="120" y1="110" x2={120 + 80 * key[0]} y2={110 - 80 * key[1]} />
+					<circle class="rope-key-tip" data-key-tip cx={120 + 80 * key[0]} cy={110 - 80 * key[1]} r="6" />
+				</svg>
+				<small>{text.score}</small>
+				<output data-score aria-label={`${text.score} · (${2 * pairIndex}, ${2 * pairIndex + 1})`}>{(query[0] * key[0] + query[1] * key[1]).toFixed(3)}</output>
+			</div>;
+		})}
+	</div>
+	<p class="rope-positions" aria-live="polite" aria-atomic="true">Q: m = <span data-query-position>4</span> · K: n = <span data-key-position>1</span> · m − n = <span data-distance>3</span></p>
+	<figcaption>{text.caption}</figcaption>
+</figure>
+
+<script>
+	import { rotateRopePair } from './rope';
+
+	for (const root of document.querySelectorAll<HTMLElement>('[data-rope]')) {
+		const shift = root.querySelector<HTMLInputElement>('[data-shift]')!;
+		const gap = root.querySelector<HTMLInputElement>('[data-gap]')!;
+		const update = (): void => {
+			const n = Number(shift.value);
+			const distance = Number(gap.value);
+			for (const [selector, value] of [
+				['[data-shift-value]', n], ['[data-gap-value]', distance],
+				['[data-query-position]', n + distance], ['[data-key-position]', n],
+				['[data-distance]', distance],
+			] as const) root.querySelector(selector)!.textContent = String(value);
+			for (const pair of root.querySelectorAll<HTMLElement>('[data-pair]')) {
+				const index = Number(pair.dataset.pair);
+				const query = rotateRopePair(n + distance, index);
+				const key = rotateRopePair(n, index);
+				for (const [name, vector] of [['query', query], ['key', key]] as const) {
+					const x = String(120 + 80 * vector[0]);
+					const y = String(110 - 80 * vector[1]);
+					const line = pair.querySelector(`[data-${name}]`)!;
+					const tip = pair.querySelector(`[data-${name}-tip]`)!;
+					line.setAttribute('x2', x);
+					line.setAttribute('y2', y);
+					tip.setAttribute('cx', x);
+					tip.setAttribute('cy', y);
+				}
+				pair.querySelector('[data-score]')!.textContent = (query[0] * key[0] + query[1] * key[1]).toFixed(3);
+			}
+		};
+		shift.addEventListener('input', update);
+		gap.addEventListener('input', update);
+	}
+</script>
+
+<style>
+	.rope { margin: 2rem 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+	.rope-controls, .rope-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1rem; }
+	.rope-controls label { font-size: .875rem; }
+	.rope-controls input { display: block; width: 100%; min-height: 2.75rem; margin: 0; accent-color: var(--accent); }
+	.rope-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .875rem; }
+	.rope-pairs { text-align: center; }
+	.rope-pairs svg { width: 100%; max-width: 17rem; margin: auto; }
+	.rope-axis { stroke: var(--border); fill: none; }
+	.rope-query { color: var(--accent); stroke: var(--accent); fill: var(--accent); }
+	.rope-key { stroke: var(--text); stroke-dasharray: 6 4; }
+	.rope-key-tip { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
+	.rope line { stroke-width: 3; }
+	.rope output { font-variant-numeric: tabular-nums; }
+	.rope-pairs output { display: block; font-weight: 600; }
+	.rope-positions { text-align: center; font-variant-numeric: tabular-nums; margin: 1rem 0 !important; }
+	.rope figcaption, .rope small { font-size: .875rem; color: var(--muted); }
+	@media (max-width: 540px) { .rope-controls, .rope-pairs { grid-template-columns: 1fr; } }
+</style>

@@ -1,11 +1,12 @@
 ---
-title: "PureLLM : construire et servir un Transformer de bout en bout"
-description: "Un modèle de langage decoder-only implémenté en NumPy puis en PyTorch, puis exposé par une API d’inférence FastAPI."
+title: "PureLLM : construire, entraîner et servir un petit modèle de langage"
+description: "Comment PureLLM transforme le texte en tokens, apprend en NumPy et en PyTorch, puis génère une continuation, avec des explications visuelles reliées au code."
 type: case-study
 locale: fr
 translationKey: purellm
 publishedAt: 2026-09-03
-readingMinutes: 11
+updatedAt: 2026-09-09
+readingMinutes: 21
 tags:
   - "LLM"
   - "Transformers"
@@ -15,147 +16,224 @@ tags:
 draft: false
 cover: "../../../assets/purellm-cover.svg"
 heroCover: "../../../assets/purellm-article-hero.webp"
-visualization: "/visualizations/purellm-forward-pass.html"
 ---
 
-import CodexVisualization from '../../../components/CodexVisualization.astro';
+import PurellmArchitecture from '../../../components/posts/purellm/PurellmArchitecture.astro';
+import PurellmAttention from '../../../components/posts/purellm/PurellmAttention.astro';
+import RopeVisualization from '../../../components/posts/purellm/RopeVisualization.astro';
+import SamplingVisualization from '../../../components/posts/purellm/SamplingVisualization.astro';
+import PurellmLearningCurve from '../../../components/posts/purellm/PurellmLearningCurve.astro';
 
-## En bref
+J’ai construit PureLLM pour comprendre les parties d’un modèle de langage qui disparaissent derrière une API d’entraînement ou de génération. Cela m’a conduit à implémenter le décodeur en NumPy, rétropropagation comprise, puis à construire une version PyTorch couvrant le chemin du texte brut jusqu’au modèle sauvegardé et au service d’inférence.
 
-| | |
-| --- | --- |
-| **Statut** | Prototype de recherche personnel avec API d'inférence |
-| **Rôle** | Conception, implémentation et expérimentation |
-| **Périmètre** | Tokenisation, architecture, entraînement, checkpoints, génération et serving |
-| **Stack** | Python, NumPy, PyTorch, FastAPI, Pydantic, TOML, uv |
-| **Code source** | [github.com/LimeSku/PureLLM](https://github.com/LimeSku/PureLLM) |
+J’ai entraîné le modèle PyTorch de 11 millions de paramètres sur TinyStories pendant 10 000 pas, sur une RTX 4070. Ses sorties sont passées de mots déformés et de fragments à des phrases reconnaissables. Maintenir la cohérence d’une histoire restait plus difficile, même lorsque la loss de validation continuait de baisser.
 
-PureLLM est un petit modèle de langage auto-régressif construit pour comprendre ce que les frameworks de haut niveau rendent habituellement invisible. Le même problème est abordé deux fois : une première implémentation en NumPy, où le forward pass et la rétropropagation sont écrits explicitement, puis une version PyTorch destinée à expérimenter avec des mécanismes plus proches des architectures modernes.
+Cet entraînement est le fil conducteur de l’article : comment le texte devient des exemples, comment le décodeur apprend à partir de ces exemples et ce qui change lorsqu’il doit produire sa propre continuation. Je m’appuie sur l’implémentation NumPy lorsque suivre les gradients rend un mécanisme plus clair.
 
-L'objectif n'est pas de produire un foundation model ni de concurrencer une bibliothèque comme Transformers. Le projet privilégie un modèle assez petit pour rester inspectable, mais assez complet pour couvrir toute la chaîne, du texte brut jusqu'à la génération de nouveaux tokens.
+## Du texte aux exemples d’entraînement
 
-## Le problème : comprendre sans simplifier à l'excès
+La tokenisation fixe les unités que le modèle apprend et la quantité de texte que son contexte peut contenir. Avec un tokenizer caractère, la correspondance est facile à inspecter. Un caractère devient un entier, puis un lookup d’embedding transforme cet entier en vecteur appris. Le vocabulaire reste petit, mais un contexte de 256 tokens ne contient alors que 256 caractères.
 
-Utiliser un modèle pré-entraîné derrière une API permet de livrer vite, mais ne donne qu'une vision partielle de son fonctionnement. À l'inverse, une démonstration réduite à quelques multiplications de matrices laisse souvent de côté les difficultés qui apparaissent dès que l'on veut réellement entraîner, sauvegarder et utiliser le modèle.
+La recette TinyStories entraîne plutôt un tokenizer fondé sur le byte pair encoding (BPE), au niveau des octets. Son vocabulaire initial contient tous les octets possibles : il peut donc encoder du texte UTF-8 sans apprendre une entrée distincte pour chaque caractère. BPE attribue ensuite des identifiants aux séquences adjacentes fréquentes. Un budget fixe de tokens peut couvrir davantage de texte lorsque des séquences courantes se condensent en moins de tokens, au prix de lignes supplémentaires dans l’embedding et la projection vers le vocabulaire.
 
-Je voulais donc réunir deux objectifs dans un même projet :
+J’ai exécuté le [`BytePairTokenizer`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/tokenization/bpe_tokenizer.py) du dépôt sur le corpus jouet `banana banana`, avec un vocabulaire cible de 260. Ses quatre fusions apprises donnent cette progression pour chaque mot :
 
-- rendre visibles les tenseurs, les gradients et les chemins résiduels d'un Transformer ;
-- conserver une boucle d'expérimentation réaliste avec configuration, validation, checkpoints et génération.
+```text
+b  a  n  a  n  a       octets initiaux
+b  an    an    a       256 = a + n
+ban      an    a       257 = b + an
+ban      ana          258 = an + a
+banana                259 = ban + ana
 
-Cette double contrainte a guidé la séparation entre les deux backends. NumPy sert à exposer les mécanismes. PyTorch prend le relais lorsque les primitives optimisées apportent de la fiabilité ou des performances sans masquer l'architecture.
-
-## Une architecture, deux niveaux d'abstraction
-
-### NumPy pour suivre chaque opération
-
-La première version implémente les briques essentielles sans autograd : embeddings, self-attention causale multi-têtes, normalisation, MLP, connexions résiduelles, projection vers le vocabulaire et entropie croisée. Le backward pass traverse ces composants dans l'ordre inverse et expose directement les gradients utilisés par les optimiseurs SGD et Adam.
-
-Cette implémentation n'est volontairement pas optimisée pour entraîner de grands modèles. Sa valeur est ailleurs : elle permet de vérifier les formes, d'observer la circulation du signal et de relier chaque équation à une opération concrète.
-
-### PyTorch pour expérimenter dans des conditions réalistes
-
-La seconde version conserve un Transformer decoder-only lisible tout en utilisant les primitives bas niveau de PyTorch. Elle ajoute notamment :
-
-- l'attention causale via `scaled_dot_product_attention` ;
-- les embeddings rotatifs RoPE ou, pour comparaison, des positions apprises ;
-- des blocs feed-forward SwiGLU ;
-- le partage optionnel des poids entre embeddings et projection de sortie ;
-- l'entraînement en précision `bf16` sur les appareils compatibles ;
-- la compilation du forward pass d'entraînement avec `torch.compile` ;
-- un cache KV pour éviter de recalculer tout le contexte à chaque token généré.
-
-Le profil TinyStories fourni décrit un modèle d'environ 11 millions de paramètres : 6 blocs, une dimension de 384, 6 têtes d'attention et un contexte de 256 tokens. Cette échelle reste adaptée à l'expérimentation locale tout en faisant apparaître les contraintes d'un vrai pipeline d'entraînement.
-
-## Le forward pass, étape par étape
-
-À partir d'une séquence d'identifiants, PureLLM construit les représentations de tokens, applique plusieurs blocs Transformer, normalise l'état caché final puis projette chaque position sur le vocabulaire. Pendant l'entraînement, les logits sont comparés au token suivant par entropie croisée.
-
-La visualisation ci-dessous permet de suivre ce chemin et d'inspecter l'effet des dimensions du modèle sur les tenseurs intermédiaires.
-
-<CodexVisualization
-  src="/visualizations/purellm-forward-pass.html"
-  title="Forward pass interactif de PureLLM"
-/>
-
-## Rendre les expériences reproductibles
-
-Le modèle seul ne suffit pas à reproduire une expérience. PureLLM décrit donc chaque entraînement dans une recette TOML qui rassemble les paramètres du modèle, des données et de l'optimisation. Le chargeur rejette les champs inconnus et valide les dimensions ou valeurs incohérentes avant de lancer un calcul coûteux.
-
-Le pipeline couvre ensuite :
-
-1. le chargement et la séparation des corpus d'entraînement et de validation ;
-2. la création d'un tokenizer caractère ou BPE, avec cache lié au contenu du corpus ;
-3. la construction des fenêtres de tokens et des DataLoaders ;
-4. l'entraînement avec AdamW, clipping des gradients, warmup linéaire et décroissance cosinus ;
-5. l'évaluation périodique sur la loss de validation ;
-6. la sauvegarde de `last.pt` et du meilleur checkpoint `best.pt` ;
-7. la reprise à partir de l'état du modèle, du tokenizer, de l'optimiseur, du scheduler et des générateurs aléatoires associés.
-
-Le runtime sélectionne automatiquement CUDA, Apple Silicon/MPS ou le CPU. Les journaux affichent la loss, la loss de validation, le learning rate, le temps par étape et le débit en tokens par seconde afin de rendre les comparaisons futures mesurables.
-
-## Passer du script au service d'inférence
-
-Une commande de génération prouve que le modèle fonctionne, mais elle ne constitue pas encore une interface utilisable par une application. J'ai donc ajouté une API FastAPI autour du même mécanisme de checkpoint et de génération.
-
-Le checkpoint est fourni par la variable d'environnement `PURELLM_CHECKPOINT`, chargé une seule fois pendant le démarrage de l'application et conservé en mémoire. Le service échoue immédiatement si le fichier est absent ou invalide, au lieu d'accepter du trafic avec un modèle indisponible. Le device est sélectionné au même moment entre CUDA, MPS et CPU.
-
-L'API reste volontairement réduite à deux endpoints :
-
-| Endpoint | Rôle |
-| --- | --- |
-| `GET /health` | Confirmer que le modèle est chargé et exposer le device ainsi que l'étape du checkpoint |
-| `POST /generate` | Générer une continuation à partir d'un prompt, d'une longueur maximale et d'une température |
-
-Le contrat d'entrée interdit les champs inconnus, les prompts vides ou composés uniquement d'espaces, les textes de plus de 8 192 caractères, les températures hors de l'intervalle autorisé et les générations supérieures à 512 tokens. Une requête valide retourne le texte complet, le nombre de tokens générés, la latence et le débit observé en tokens par seconde.
-
-```bash
-PURELLM_CHECKPOINT=runs/tinygpt-shakespeare/checkpoints/best.pt \
-  uv run uvicorn purellm.api:app
-
-curl http://localhost:8000/generate \
-  --header 'Content-Type: application/json' \
-  --data '{"prompt":"ROMEO:","max_new_tokens":64,"temperature":0.8}'
+"banana banana" → [259, 32, 259]
 ```
 
-### Protéger le cache KV sous concurrence
+L’espace reste l’octet 32. PureLLM sépare les espaces et les suites de caractères non blancs avant d’apprendre les fusions : un token fusionné ne peut donc pas traverser cette frontière. Les segments répétés sont comptés ensemble pendant l’ajustement et mis en cache pendant l’encodage ; les mots courants ne sont pas retraités depuis le début à chaque occurrence.
 
-La génération modifie un cache KV porté par l'instance du modèle. Deux requêtes exécutées en parallèle pourraient donc mélanger leur état. Pour cette première version, un verrou sérialise les générations autour de l'encodage, de l'inférence et du calcul des métriques.
+La couverture des octets permet au tokenizer d’encoder de nouveaux textes, mais elle n’oblige pas le modèle à générer du UTF-8 valide. Le tirage peut s’arrêter au milieu d’un caractère ou produire une séquence d’octets invalide. La CLI et l’API décodent avec `errors="replace"`, ce qui affiche alors un caractère de remplacement.
 
-Ce choix limite le débit, mais garantit un comportement correct avec une seule instance du modèle. Il rend aussi la limite d'architecture explicite : si la charge le justifie, l'évolution naturelle sera de répliquer le worker ou d'isoler le cache par requête, puis de mesurer le gain avant d'ajouter du batching.
+La [recette TinyStories](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/recipes/tinygpt/tiny_stories.toml) ajuste BPE sur au plus le premier million de caractères d’entraînement, puis entraîne le modèle sur un maximum de 20 millions. Le [resolver](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/tokenization/resolver.py) identifie le cache du tokenizer par sa version, la taille cible du vocabulaire et un hash du texte d’ajustement. Le texte de validation ne participe pas à cet ajustement.
 
-### Vérifier le contrat HTTP
+Une fois le texte encodé, chaque fenêtre fournit sa propre supervision. Pour `abaca`, une entrée `abac` a pour cible `baca` : à chaque position, prédire le token suivant. Le [dataset](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/dataset.py) crée ces deux tranches dans le même tenseur de tokens. TinyStories fournit des fichiers d’entraînement et de validation distincts ; les fenêtres sont construites séparément dans chaque jeu.
 
-Un test d'intégration construit un checkpoint minimal, démarre l'application sur CPU avec `TestClient` et vérifie que le modèle n'est chargé qu'une fois. Il couvre également `/health`, une génération valide, le rejet d'une longueur excessive avec un statut 422 et la présence des deux routes dans le schéma OpenAPI. La documentation interactive est ainsi disponible automatiquement sur `/docs`.
+## Construire un décodeur inspectable
 
-## Ce qui fonctionne aujourd'hui
+Le [modèle PyTorch](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/model.py) suit le même chemin pour chaque batch : lookup des embeddings, traversée des blocs, dernière normalisation et projection de chaque position vers le vocabulaire. L’entraînement utilise les logits de toutes les positions. La génération effectue son tirage à partir de la dernière.
 
-Le dépôt fournit des recettes pour un smoke test sur Tiny Shakespeare et une expérience plus ambitieuse sur TinyStories. Le pipeline implémente l'entraînement, la reprise depuis un checkpoint, la génération auto-régressive et son exposition par HTTP.
+<PurellmArchitecture locale="fr" />
 
-Le résultat principal à ce stade est donc un socle expérimental complet et inspectable, pas une revendication de qualité linguistique. L'architecture moderne, la version NumPy, les outils d'entraînement et l'API vivent dans le même dépôt, avec une frontière explicite entre apprentissage des mécanismes, optimisation pratique et intégration applicative.
+Pour TinyStories, `D = 384`, `L = 6` et `T` vaut au plus 256. Six têtes d’attention divisent chaque représentation en groupes de 64 coordonnées. L’entraînement a atteint le vocabulaire cible de 1 024 et rapporte 11 021 056 paramètres. Les formes des tenseurs donnent des contrôles utiles : chaque sous-couche doit restituer une largeur de 384 pour que l’addition résiduelle fonctionne.
 
-## Limites actuelles
+L’attention permet à un token de construire sa représentation à partir des positions qu’il peut consulter. Q est le vecteur appris qui cherche une correspondance ; K est le vecteur appris proposé à la comparaison ; V contient l’information à combiner une fois les correspondances évaluées. Ce sont trois projections de la même entrée, pas trois copies des identifiants de tokens.
 
-Le projet reste un prototype de recherche. Plusieurs limites doivent être explicites :
+Pour une query, les produits scalaires avec les keys produisent une ligne de scores. Des têtes plus larges somment davantage de termes, ce qui tend à augmenter la dispersion de ces scores. Des écarts plus grands concentrent davantage le softmax sur les meilleures correspondances. PureLLM divise les scores par la racine carrée de la dimension d’une tête — 8 pour 64 coordonnées — pour compenser cette croissance. Il masque les positions futures, puis applique le softmax sur la ligne. Les poids obtenus somment à un et servent à calculer une somme pondérée des vecteurs V.
 
-- aucun benchmark reproductible de qualité, vitesse ou mémoire n'est encore publié ;
-- la parité numérique entre les implémentations NumPy et PyTorch n'est pas couverte par une suite de tests ;
-- le cache KV privilégie encore une logique simple lorsque la fenêtre de contexte est pleine ;
-- le verrou global limite l'API à une génération simultanée par processus ;
-- l'API ne propose encore ni streaming, ni batching, ni authentification, ni limitation de débit ;
-- le dépôt ne propose ni entraînement distribué, ni quantification, ni fine-tuning conversationnel ;
-- le modèle et les corpus d'exemple sont trop petits pour évaluer des capacités générales.
+<PurellmAttention locale="fr" />
 
-Ces absences empêchent volontairement de présenter PureLLM comme une solution prête pour la production. Elles définissent aussi la prochaine étape utile : remplacer les affirmations d'architecture par des expériences chiffrées.
+Cette matrice rend aussi possible le calcul parallèle des positions pendant l’entraînement. La cible de `a₂` est `c`, mais sa représentation ne peut pas consulter l’entrée `c₃`. Toutes les lignes peuvent être calculées ensemble parce que le masque impose cette restriction. La génération introduit une autre dépendance : le prochain token d’entrée doit d’abord être tiré à partir de la prédiction courante.
 
-## Prochaines expériences
+Dans l’[attention NumPy](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/attention.py), les projections, les scores mis à l’échelle, le masque triangulaire, le softmax et la multiplication par V sont explicites. La [version PyTorch](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/attention.py) produit Q, K et V avec une seule projection sans biais de `(B, T, 384)` vers `(B, T, 1152)`, puis réorganise chacun en `(B, 6, T, 64)`. Elle délègue l’opération à `scaled_dot_product_attention` ; PyTorch choisit le kernel disponible. Les sorties des six têtes sont concaténées pour retrouver `(B, T, 384)`, puis `W_output` mélange leurs coordonnées avant l’addition résiduelle. La matrice de scores conceptuelle possède `T × T` entrées par tête, même lorsqu’un kernel évite de la matérialiser entièrement.
 
-La suite la plus informative consiste à construire un protocole commun aux deux backends : tests de gradients sur de petits tenseurs, comparaison des logits, suivi de la loss et mesures de débit à configuration fixe. Côté API, un test de charge devra mesurer la latence p50/p95, le débit et la mémoire avant de choisir entre réplication, cache isolé, streaming ou batching. Des ablations ciblées pourront ensuite isoler l'effet de RoPE, de SwiGLU, du partage des embeddings, de la précision mixte et du cache KV.
+Les chemins résiduels évitent d’obliger chaque bloc à remplacer toute son entrée. La branche d’attention apporte une modification à `x`, puis le feed-forward en apporte une seconde. Avant chaque branche, LayerNorm centre et remet à l’échelle les coordonnées **au sein de chaque token**, puis applique une échelle et un biais appris. Il ne normalise ni entre tokens ni entre éléments du batch. Dans le [bloc pré-normalisé](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/transformer.py), le résiduel non normalisé reste disponible à côté des entrées transformées. Le dropout agit sur les sorties des branches pendant l’entraînement ; l’évaluation le désactive.
 
-L'objectif n'est pas d'empiler les fonctionnalités, mais de répondre à des questions précises avec des expériences reproductibles : qu'est-ce qui améliore réellement l'entraînement, qu'est-ce qui accélère l'inférence, et quel compromis chaque choix impose-t-il ?
+Le feed-forward traite chaque position indépendamment. NumPy utilise un MLP à GELU. Le SwiGLU de PyTorch donne à la même entrée deux projections apprises : l’une fournit les valeurs, l’autre les module coordonnée par coordonnée.
 
-## Ce que j'en retiens
+```python
+gate, value = self.W1(x).chunk(2, dim=-1)
+return self.W2(F.silu(gate) * value)
+```
 
-Réimplémenter un Transformer montre que l'architecture n'est qu'une partie du système. La préparation des données, la validation de configuration, l'état des optimiseurs, les checkpoints, l'instrumentation et l'interface de serving déterminent autant la qualité d'une expérience que le modèle lui-même.
+Puisque `silu(g) = g * sigmoid(g)`, la porte est un multiplicateur continu plutôt qu’un interrupteur binaire. Dans le bloc TinyStories, `W1` projette 384 coordonnées vers deux groupes de 1 024 ; leur produit traverse `W2` pour revenir à 384. Cela représente `3 × 384 × 1024` poids, autant qu’un MLP sans biais à deux matrices dont la largeur cachée serait `4 × 384`. La porte ajoute une troisième matrice ; réduire la largeur cachée permet de conserver ce même budget de poids.
 
-PureLLM m'a également permis de fixer une frontière d'abstraction utile : écrire manuellement ce qui aide à comprendre, puis réutiliser une primitive optimisée dès qu'elle apporte une garantie concrète. C'est cette articulation entre compréhension du modèle et ingénierie du système que je souhaite continuer à documenter.
+La projection finale vers le vocabulaire peut réutiliser les poids de l’embedding d’entrée. L’implémentation affecte le même objet paramètre aux deux couches. Chaque ligne du vocabulaire sert alors à représenter un token en entrée et à calculer un score avec l’état caché final en sortie. Avec un vocabulaire de 1 024 et une largeur de 384, cela économise 393 216 poids ; le biais de sortie reste distinct. Ce partage couple les deux usages pendant l’entraînement.
+
+### RoPE : la position comme rotation dans l’attention
+
+Partons de deux flèches dans un plan. Leur produit scalaire dépend de leurs longueurs et de l’angle entre elles. Si on les tourne du même angle, leur produit scalaire reste identique. Si on les tourne d’angles différents, leur alignement change.
+
+Les embeddings de position rotatifs (RoPE) utilisent cette géométrie pour introduire la position dans les comparaisons entre queries et keys. Les coordonnées sont regroupées par paires, chaque paire formant une flèche à deux dimensions. À la position $p$, cette flèche tourne d’un angle $p\omega_i$, où l’indice de paire $i$ détermine la vitesse angulaire. Q et K utilisent les mêmes vitesses. Les valeurs V ne subissent pas cette rotation.
+
+La visualisation ci-dessous fixe les vecteurs de contenu à $(1, 0)$ pour isoler l’effet des positions. Décaler les deux positions fait tourner les flèches ensemble sans changer leur contribution au produit scalaire. Modifier leur distance change leur alignement. Les deux cercles utilisent des fréquences réelles des têtes de dimension 64 de PureLLM.
+
+<RopeVisualization locale="fr" />
+
+La paire rapide effectue une rotation importante à chaque token ; la paire lente évolue plus progressivement. PureLLM utilise 32 paires par tête, avec les vitesses angulaires suivantes :
+
+$$
+\omega_i = 10000^{-2i/64}, \qquad i = 0,\ldots,31.
+$$
+
+La paire zéro tourne à 1 radian par token. La paire huit tourne à 0,1 radian par token. Une paire seule revient périodiquement au même angle ; la tête combine toutes les fréquences. Ces cercles représentent des plans de coordonnées à l’intérieur d’une tête, pas des têtes d’attention distinctes.
+
+La propriété de position relative vient directement de la composition des rotations. Si $R(\theta)$ tourne une paire d’un angle $\theta$, alors, pour une query à la position $m$ et une key à la position $n$ :
+
+$$
+\bigl(R(m\omega_i)q\bigr)^\top R(n\omega_i)k
+= q^\top R\bigl((n-m)\omega_i\bigr)k.
+$$
+
+Les deux positions servent à construire les vecteurs tournés, mais le terme positionnel de leur comparaison dépend de leur différence. Cela ne rend **pas** le modèle entier invariant au déplacement d’un texte : les vecteurs de contenu et le contexte causal disponible interviennent aussi. Cela n’impose pas non plus une décroissance monotone de l’attention avec la distance. La garantie utile est plus précise : à Q et K fixés, un décalage commun des positions s’annule dans leur produit scalaire. C’est le mécanisme développé dans l’[article RoFormer](https://arxiv.org/abs/2104.09864).
+
+Le dépôt traduit presque littéralement ce dessin. Dans [`RotaryEmbedding.forward`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/position.py), `torch.arange(0, head_dim, 2) / head_dim` construit les exposants. Un produit extérieur entre positions et fréquences inverses donne la table des angles. Les cosinus et sinus sont diffusés sur le batch et les têtes. Puis `_rotate` applique la rotation à deux dimensions aux coordonnées adjacentes :
+
+```python
+even = x[..., 0::2]
+odd = x[..., 1::2]
+rotated_even = even * cosine - odd * sine
+rotated_odd = even * sine + odd * cosine
+return torch.stack((rotated_even, rotated_odd), dim=-1).flatten(-2)
+```
+
+`stack` réentrelace les coordonnées paires et impaires après rotation. La dimension d’une tête doit être paire, puisque chaque coordonnée a besoin d’une partenaire. Les fréquences sont un buffer non persistant : elles suivent le module sur le périphérique et peuvent être reconstruites depuis sa configuration ; ce ne sont pas des paramètres appris à sauvegarder dans le checkpoint.
+
+Choisir `position_encoding = "rope"` supprime aussi la table de positions apprises dans [`TokenPositionEmbedding`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/embeddings.py). La position entre dans Q et K à chaque bloc d’attention, au lieu d’être ajoutée aux embeddings initiaux. Le modèle continue d’imposer son contexte configuré de 256 tokens ; choisir RoPE n’agrandit pas cette fenêtre.
+
+## Faire apprendre le modèle
+
+Un forward se termine par un vecteur de logits de la taille du vocabulaire à chaque position. La loss relie ce vecteur au token cible suivant. Donner une probabilité élevée à la cible coûte peu ; prédire autre chose avec confiance coûte beaucoup plus. L’entropie croisée moyenne cette pénalité sur les positions du batch.
+
+Le gradient de l’entropie croisée avec softmax a une interprétation utile : copier les probabilités, soustraire un à l’indice de la cible, puis diviser par le nombre de tokens prédits. Pour une cible de probabilité 0,1, sa composante est proportionnelle à `−0,9` ; les tokens concurrents ont des composantes positives. C’est le signal local qui pousse à augmenter le logit cible et à diminuer les autres. La mise à jour des paramètres combine ces signaux entre positions et poids partagés.
+
+La [loss NumPy](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/losses.py) calcule les log-probabilités directement à partir des logits. Soustraire le plus grand logit avant l’exponentiation fixe la plus grande exponentielle à un. Retrancher ensuite le logarithme de leur somme donne des log-probabilités normalisées, sans prendre le logarithme d’une probabilité qui aurait pu être arrondie à zéro. Le forward moyenne les log-probabilités négatives des cibles ; le backward utilise le gradient décrit plus haut.
+
+Les [vérifications numériques](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/tests/numpy/test_gradients.py) perturbent les entrées et les poids dans les deux sens, puis comparent la variation de l’objectif aux gradients écrits à la main. Elles couvrent les cibles extrêmement improbables, les indices d’embedding répétés, les différentes couches et un décodeur complet miniature.
+
+En PyTorch, [`language_model_loss`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/training.py) aplatit les logits `(B, T, V)` en `(B*T, V)` et les cibles en `(B*T)` avant `F.cross_entropy`. Le masque causal et le décalage des cibles rendent ces lignes valides comme tâches de prédiction ; l’aplatissement permet simplement de partager le calcul de loss.
+
+Écrire le backward NumPy fait apparaître deux endroits où les contributions doivent se rejoindre. Pour un résiduel `y = x + f(x)`, le gradient atteint `x` directement et en traversant `f`. [`TransformerBlock.backward`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/transformer.py) additionne ces contributions après avoir remonté chaque branche dans l’ordre inverse. Dans l’attention, les chemins Q, K et V apportent trois gradients à la même entrée ; les scores masqués reçoivent un gradient nul.
+
+Les tokens répétés posent le même problème dans une table d’embedding. Plusieurs positions peuvent lire la même ligne du vocabulaire : le backward doit les accumuler toutes. [`Embedding.backward`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/embeddings.py) utilise une addition indexée qui traite les indices répétés :
+
+```python
+np.add.at(
+    self.dweights,
+    self.token_ids.reshape(-1),
+    dout.reshape(-1, self.embedding_dim),
+)
+```
+
+Ces gradients demandent encore une règle de mise à jour. L’[implémentation locale d’Adam](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/numpy/optimizer/adam.py) conserve des moyennes mobiles des gradients et de leurs carrés pour chaque paramètre, corrige leur biais initial et les utilise pour ajuster l’amplitude des mises à jour. C’est pourquoi reprendre avec les poids seuls ne suffit pas : l’optimiseur garde une mémoire du chemin parcouru. PyTorch utilise AdamW avec les betas `(0.9, 0.95)` et un weight decay configurable, qui réduit les paramètres séparément de cette mise à jour adaptative.
+
+Le [pas d’entraînement PyTorch](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/training.py) efface les anciens gradients, calcule la loss, rétropropage, limite la norme globale des gradients et appelle l’optimiseur. Le clipping remet à l’échelle le vecteur de gradient combiné si sa norme dépasse le seuil : il conserve sa direction tout en bornant sa taille. Les deux implémentations proposent cette opération. Le calendrier du learning rate contrôle ensuite l’échelle générale de la mise à jour : partir d’un taux plus petit pendant le warmup, puis décroître vers un minimum selon une courbe cosinus. Dans cette exécution, le learning rate atteint `3 × 10⁻⁴` après 500 pas de warmup, puis décroît jusqu’à `3 × 10⁻⁵` au pas 10 000. Le warmup occupe les premiers 5 % de l’entraînement.
+
+Le forward d’entraînement PyTorch passe par `torch.compile` et désactive le cache de génération. La compilation peut spécialiser l’exécution des tenseurs, mais son coût initial compte pour les entraînements courts. Cette expérience utilise aussi autocast en `bf16` pour les opérations éligibles. Les paramètres et l’état de l’optimiseur ne sont pas tous convertis en bfloat16 : exécuter en précision réduite ne divise donc pas chaque poste mémoire par deux.
+
+Le chemin des données détermine ce qu’il faut déplacer avant chaque mise à jour. Dans [`scripts/train.py`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/scripts/train.py), utilisé ici, un unique tenseur de tokens reste sur CPU. Le DataLoader mélange des fenêtres fixes et transfère chaque batch au GPU. Garder le corpus hors du GPU laisse davantage de mémoire au modèle, aux activations et à l’état de l’optimiseur.
+
+Le dépôt propose aussi un [chemin où le corpus réside sur le GPU](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/scripts/train_from_scratch.py), avec une construction des batchs directement sur place. Cela supprime les transferts répétés, mais le corpus occupe une partie de la mémoire du périphérique. Ce chemin tire aussi des débuts de fenêtres aléatoires au lieu de mélanger les mêmes fenêtres fixes : il change à la fois les transferts et les exemples vus pendant l’entraînement.
+
+## Ce qui change en 10 000 pas
+
+*Les références de code utilisent la [révision `daa4c57`](https://github.com/LimeSku/PureLLM/tree/daa4c57adf588d721b7aaaf5365e8768694a2fef) ; les résultats ci-dessous proviennent de la configuration, des métriques et du journal sauvegardés pour l’exécution TinyStories numéro 2.*
+
+J’ai évalué les 20 premiers batchs de validation au pas 1, tous les 250 pas et au dernier pas. Réutiliser ces fenêtres permet de suivre l’erreur de prédiction sur les mêmes textes au fil de l’entraînement. Il s’agit d’un sous-ensemble fixe de validation, pas d’un score sur le fichier entier. La perplexité vaut `exp(loss)` : elle exprime la même erreur de prédiction sur une autre échelle.
+
+L’entraînement sur RTX 4070 utilise CUDA avec autocast en `bf16`, 20 millions de caractères d’entraînement et un million de caractères de validation. J’ai porté la recette à cinq époques avec un plafond de 10 000 pas. À raison de 2 351 batchs par époque, le modèle a parcouru quatre époques complètes et une partie de la cinquième. Des batchs de 16 avec un contexte de 256 donnent 4 096 prédictions de tokens par mise à jour, soit 40,96 millions sur l’ensemble de l’entraînement, passages répétés sur le texte compris.
+
+`metrics.jsonl` contient 41 évaluations. La courbe rend le changement de rythme visible :
+
+<PurellmLearningCurve locale="fr" />
+
+La loss de validation atteint son minimum enregistré, 1,0662, au pas 9 750 : une perplexité d’environ 2,90. Le dernier checkpoint est pratiquement au même niveau, à 1,0663. La baisse est surtout rapide au début ; les 5 000 dernières mises à jour réduisent la loss de validation d’environ 0,096. La loss du dernier batch d’entraînement vaut 0,9914, mais elle mesure un batch plutôt que l’ensemble du jeu d’entraînement.
+
+En excluant le premier relevé, le débit médian rapporté est d’environ 336 000 tokens par seconde. Le chronomètre synchronise le GPU et mesure les intervalles d’entraînement, en excluant l’évaluation, l’écriture des checkpoints et la génération des exemples. Il mesure donc la boucle d’entraînement plutôt que la durée totale de l’expérience.
+
+## Transformer les prédictions en texte
+
+L’entraînement fournit le bon token suivant à chaque position. Pendant la génération, le modèle doit réutiliser son propre choix précédent comme prochaine entrée. Le décodeur produit toujours des logits ; la procédure d’échantillonnage transforme leur dernière ligne en token.
+
+Dans [`generate`](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/generation.py), les logits de dernière position sont convertis en float32 et divisés par la température. Une température inférieure à un accentue leurs écarts et concentre la probabilité sur les premiers candidats ; une température plus élevée aplatit la distribution. Une température positive préserve leur classement. Top-k ne conserve ensuite que les candidats aux meilleurs scores, avant que le softmax renormalise leurs probabilités.
+
+<SamplingVisualization locale="fr" />
+
+`torch.multinomial` effectue un tirage selon ces probabilités. Après le filtrage top-k, son résultat indexe la liste raccourcie des candidats : `torch.gather` transforme cet indice en identifiant du vocabulaire. Cet identifiant est ajouté à la séquence, puis le processus recommence. La boucle effectue `max_new_tokens` pas ; elle ne s’arrête pas sur un token EOS. Avec `top_k=1`, la distribution ne contient qu’un candidat, rendant le choix déterministe même si le code appelle toujours la fonction de tirage. La [CLI](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/scripts/generate.py) accepte aussi une seed pour reproduire l’échantillonnage dans un environnement d’exécution fixé.
+
+L’aperçu d’entraînement prend les 16 premiers tokens de validation comme prompt fixe, réinitialise la seed à 42 et tire 100 nouveaux tokens à température 0,8, sans filtrage top-k. Le prompt vient directement du début du fichier de validation ; il n’a pas été choisi comme début d’histoire. C’est pourquoi le texte affiché commence par `u don't`.
+
+Le journal affiche le prompt et la continuation ensemble. Les 41 exemples partagent cette ouverture, qui inclut le prompt :
+
+```text
+u don't have to be scared of the
+```
+
+Pour comparer les sorties, j’ai retiré cette ouverture commune des deux textes ci-dessous. Le reste est inchangé ; les deux aperçus utilisent le même budget de génération.
+
+**Pas 500**
+
+> hands and said, "Hellny is not stoad. Tom and Sue keep it is him.
+> They were happy. They hugged the now day that from the cirre. They felt very happy. They went and cryed in the hair. They learned that shabed and
+
+**Pas 10 000**
+
+> exit.
+> The little girl stayed shy and continued to explore the forest and looked around until she reached the exit. The moral of the story is that it's ok to be respectful and that it is important to be
+
+Le second exemple maintient une action sur plusieurs propositions, mais sa morale est peu reliée à ce qui s’est passé. Des exemples voisins produisent encore « the exercise of the trees » et répètent les descriptions des personnages. Les deux aperçus s’interrompent au milieu d’une phrase parce qu’ils atteignent la limite de 100 tokens. Le modèle a appris des constructions de phrases bien meilleures ; les erreurs restantes portent sur ce qu’elles signifient ensemble.
+
+### Réutiliser le préfixe avec un cache KV
+
+Générer un token à la fois pourrait conduire à recalculer tous les tokens précédents à chaque pas. L’attention causale permet de réutiliser ce travail : ajouter un token laisse les états antérieurs inchangés tant que le préfixe reste intact. Chaque bloc peut conserver ses anciennes keys et values. La query du nouveau token se compare toujours à toutes les keys retenues, mais leurs projections et le reste des calculs sur les anciens tokens peuvent être réutilisés.
+
+PureLLM traite d’abord le prompt, tronqué à la fenêtre de contexte, dans un appel de **prefill**. Les appels suivants passent un token. Chaque [couche d’attention](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/attention.py) ajoute ses K et V à ses buffers. Avec RoPE, elle utilise `position_offset=past_length` : un token entrant après un préfixe de longueur 10 appartient à la position 10, pas zéro. Les anciennes keys ont déjà subi leur rotation et restent telles quelles.
+
+Le masque d’attention change aussi. Le prefill demande la matrice triangulaire présentée plus haut. Une query unique peut consulter toutes les keys en cache et elle-même, car aucune n’est dans son futur. Le code utilise `is_causal=past_length == 0` et refuse les entrées de plusieurs tokens lorsqu’un cache est déjà rempli. Pour une query unique face à plusieurs keys, le masque causal de PyTorch aligne la query sur la première key. Conserver `is_causal=True` n’autoriserait donc que cette key et masquerait le reste du préfixe valide. [Sémantique de l’attention PyTorch](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html).
+
+À la limite du contexte, la génération vide le cache et traite à nouveau la dernière fenêtre complète. À partir de là, chaque pas reconstruit cette fenêtre et perd le bénéfice de la réutilisation du préfixe. Supprimer seulement l’entrée la plus ancienne conserverait des états cachés calculés à partir d’un contexte désormais disparu ; les positions apprises conserveraient aussi leurs anciennes affectations. Recalculer donne à la fenêtre tronquée de nouveaux états et de nouvelles positions, avec un coût de calcul explicite.
+
+Le cache occupe également de la mémoire : K et V contiennent ensemble `2 × L × B × T × D` éléments. Aux dimensions TinyStories, pour un prompt et une fenêtre pleine de 256 tokens, cela représente 1 179 648 éléments, soit 4,5 Mio en float32, avant les concaténations temporaires et le reste de la mémoire du modèle. Cet état appartient actuellement au modèle, ce qui détermine la façon de le servir.
+
+## Sauvegarder et servir l’expérience
+
+Chaque exécution numérotée conserve le TOML d’entrée et les checkpoints ; `scripts/train.py` écrit aussi les évaluations dans `metrics.jsonl`. Un [checkpoint](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/torchgpt/checkpoint.py) contient la configuration et les poids du modèle, l’état du tokenizer, de l’optimiseur et du scheduler, le pas courant, la meilleure loss de validation et les états RNG du CPU et du périphérique. Il est écrit dans un fichier temporaire avant de remplacer la destination.
+
+Le tokenizer appartient à cet ensemble parce que les poids sont indexés par son vocabulaire. Reconstruire un autre tokenizer de même taille préserverait les formes des tenseurs tout en changeant le sens de leurs lignes. Les moyennes mobiles de l’optimiseur et la position du scheduler affectent aussi la mise à jour suivante. La reprise les restaure, mais le chemin DataLoader ne sauvegarde ni sa permutation mélangée ni sa position au milieu d’une époque : il ne peut donc pas promettre la continuation exacte d’une exécution interrompue.
+
+Le [service FastAPI](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/purellm/api.py) charge un checkpoint au démarrage. `/health` expose son périphérique et son pas ; `/generate` appelle la même fonction de génération que la CLI. Comme des requêtes concurrentes modifieraient le même cache du modèle, un verrou sérialise l’encodage du prompt et la génération. La fonction de génération vide le cache avant usage et dans un bloc `finally`. Davantage d’inférences concurrentes demanderaient des caches propres aux requêtes ou des réplicas du modèle, en tenant compte de leurs coûts mémoire.
+
+Le [README](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/README.md#quick-start) décrit le lancement du service à partir d’un checkpoint sauvegardé.
+
+La validation des requêtes borne la taille du prompt et de la génération et rejette les paramètres d’échantillonnage invalides. Ce sont des limites de service : un prompt accepté peut dépasser le contexte du modèle et être tronqué pour l’inférence. La latence renvoyée commence après l’acquisition du verrou et s’arrête avant le décodage des identifiants en texte. Elle exclut l’attente, la sérialisation et le réseau ; il faut donc mesurer depuis le client pour comprendre le comportement sous charge.
+
+Le [test du cache KV](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/tests/test_kv_cache.py) compare les logits obtenus avec cache à ceux d’un forward sur le préfixe entier, pour les deux types de positions. Il vérifie que réutiliser les calculs préserve la prédiction. Le [test API](https://github.com/LimeSku/PureLLM/blob/daa4c57adf588d721b7aaaf5365e8768694a2fef/tests/test_api.py) charge un checkpoint et exerce la génération via HTTP : il couvre le passage du modèle sauvegardé à une réponse.
+
+Après 10 000 pas, le modèle construit des phrases bien plus sûrement qu’il ne maintient la cohérence d’une histoire. La courbe de validation et les continuations montrent deux aspects de ce progrès : prédire à partir d’un préfixe fourni, puis générer à partir de ses propres choix. Les fins incohérentes apparaissent déjà dans l’aperçu de 116 tokens, avant que la fenêtre de contexte soit pleine.

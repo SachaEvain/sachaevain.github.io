@@ -1,0 +1,50 @@
+---
+import type { Locale } from '../../../i18n';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const fr = locale === 'fr';
+const tokens = ['a', 'b', 'a', 'c'];
+const weights = ['20%', '30%', '50%', '×'];
+---
+
+<figure class="attention-example">
+	<strong>{fr ? 'Quatre prédictions en un seul forward' : 'Four predictions in one forward pass'}</strong>
+	<div class="alignment">
+		<div><span>{fr ? 'Entrée x' : 'Input x'}</span><code>a</code><code>b</code><code>a</code><code>c</code></div>
+		<div><span>{fr ? 'Cible y' : 'Target y'}</span><code>b</code><code>a</code><code>c</code><code>a</code></div>
+	</div>
+	<table>
+		<caption>{fr ? 'Chaque query consulte uniquement les keys à sa gauche et elle-même.' : 'Each query can read only earlier keys and its own key.'}</caption>
+		<thead><tr><th scope="col">Q ↓ · K →</th>{tokens.map((token, i) => <th scope="col">{token}<sub>{i}</sub></th>)}</tr></thead>
+		<tbody>{tokens.map((token, row) => <tr class:list={{ selected: row === 2 }}>
+			<th scope="row">{token}<sub>{row}</sub></th>
+			{tokens.map((_, col) => <td class:list={{ masked: col > row }}>
+				{row === 2 ? weights[col] : col > row ? '×' : '•'}
+			</td>)}
+		</tr>)}</tbody>
+	</table>
+	<p>{fr ? 'Ligne a₂ : prédire c, sans voir c₃.' : 'Row a₂: predict c, without seeing c₃.'}</p>
+	<div class="weighted-values">
+		<code>V₀ = (1, 0) · V₁ = (0, 2) · V₂ = (2, 1)</code>
+		<code>0.2 V₀ + 0.3 V₁ + 0.5 V₂ = (1.2, 1.1)</code>
+	</div>
+	<figcaption>{fr
+		? 'Exemple pédagogique sur « abaca », avec poids d’attention et valeurs inventés pour une tête. • = position autorisée ; × = position masquée, poids nul. Les pourcentages de la ligne sélectionnée somment à 100 %. Ce ne sont pas des mesures du modèle.'
+		: 'Teaching example using “abaca”, with illustrative attention weights and values for one head. • = allowed position; × = masked position, zero weight. The selected row sums to 100%. These are not model measurements.'}</figcaption>
+</figure>
+
+<style>
+	.attention-example { margin: 2rem 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+	.alignment { display: grid; gap: .5rem; margin: 1rem 0; }
+	.alignment > div { display: grid; grid-template-columns: 6rem repeat(4, 1fr); align-items: center; gap: .25rem; }
+	.alignment code { text-align: center; }
+	.attention-example table { display: table; table-layout: fixed; width: 100%; margin: 1rem 0; font-size: .875rem; }
+	.attention-example th, .attention-example td { text-align: center; padding: .5rem .15rem; }
+	.attention-example caption { text-align: left; margin-bottom: .75rem; color: var(--muted); }
+	.selected { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 600; }
+	.masked { background: var(--border); }
+	.attention-example p { margin: .75rem 0; }
+	.weighted-values { display: grid; gap: .5rem; }
+	.weighted-values code { white-space: normal; overflow-wrap: anywhere; font-size: .875rem; }
+	figcaption { margin-top: 1rem; color: var(--muted); font-size: .875rem; }
+</style>

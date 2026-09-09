@@ -34,6 +34,10 @@ npm run preview  # preview the build
 
 Validation intentionally fails when a post translation is missing or duplicated.
 
+## Article components
+
+Keep article-specific components in `src/components/posts/<slug>/`, with their TypeScript helpers alongside them and their images in a local `assets/` folder. Both language versions import from the same folder; PureLLM is the current example. Shared site components, including `CodexVisualization.astro`, remain in `src/components/`; covers shared by blog and portfolio remain in `src/assets/`.
+
 ## Adding a Codex visualization
 
 1. Copy the exported HTML file to `public/visualizations/`.
