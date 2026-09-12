@@ -64,6 +64,6 @@ The visualization remains isolated from the site in a sandboxed iframe. Exports 
 3. Replace the CVs at `public/cv/sacha-evain-cv-fr.pdf` and `public/cv/sacha-evain-cv-en.pdf` when needed; their download links are already enabled.
 4. Set `ready` to `true` in `src/config.ts` to allow indexing.
 5. In the repository's **Settings → Pages**, select **GitHub Actions** as the source.
-6. Manually trigger the **Deploy to GitHub Pages** workflow.
+6. Push to `main` to build and deploy the website automatically.
 
-The workflow does not run on push unless that trigger is explicitly added.
+You can also manually trigger the **Deploy to GitHub Pages** workflow from the Actions tab.
