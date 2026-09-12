@@ -105,7 +105,7 @@ const en: typeof fr = {
 	readArticle: '[READ_ARTICLE_EN]',
 	portfolioTitle: 'Projects',
 	portfolioDescription:
-		'A portfolio of projects spanning production ML systems, pilots, research prototypes, and hackathon builds.',
+		'A portfolio of projects spanning production ML systems, pilots, research prototypes and hackathon builds.',
 	blogTitle: 'Latest Articles',
 	blogDescription: '[BLOG_DESCRIPTION_EN]',
 	blogFilterLabel: 'Filter by category',
