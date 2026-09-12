@@ -31,7 +31,7 @@ const href = projectPath(project);
 			project.data.cover ? (
 				<CoverImage src={project.data.cover} alt="" loading="lazy" />
 			) : project.data.coverUrl ? (
-				<img src={project.data.coverUrl} alt="" loading="lazy" />
+				<img src={project.data.coverUrl} alt="" width="1200" height="600" loading="lazy" />
 			) : (
 				<div class="editorial-card__fallback">
 					<span>ML / CODE</span>
@@ -51,3 +51,20 @@ const href = projectPath(project);
 		</a>
 	</footer>
 </article>
+
+<style>
+	@media (max-width: 52rem) {
+		.editorial-card {
+			grid-template-rows: auto 1fr auto;
+		}
+
+		.editorial-card__visual {
+			min-height: 0;
+		}
+
+		.editorial-card__visual :global(img),
+		.editorial-card__visual :global(svg) {
+			height: auto;
+		}
+	}
+</style>
