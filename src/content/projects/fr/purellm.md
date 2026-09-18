@@ -11,7 +11,7 @@ tags:
   - "Transformers"
   - "FastAPI"
 order: 0
-cover: "../../../assets/purellm-cover.svg"
+coverUrl: "https://opengraph.githubassets.com/1/LimeSku/PureLLM"
 ---
 
 ## Des mécanismes du modèle au service d’inférence
