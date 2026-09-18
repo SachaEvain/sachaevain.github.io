@@ -172,7 +172,7 @@ h3 {
 .header-inner {
 	display: flex;
 	align-items: center;
-	min-height: 4.75rem;
+	min-height: 3.8rem;
 }
 
 .brand {
@@ -261,43 +261,43 @@ h3 {
 	color: var(--text);
 }
 
+.theme-control {
+	display: flex;
+	align-items: stretch;
+	align-self: stretch;
+	border-left: 1px solid var(--border);
+}
+
 .theme-switch {
-	display: inline-grid;
-	grid-template-columns: repeat(3, 2.25rem);
-	margin-inline: var(--space-3);
-	padding: 0.2rem;
-	border: 1px solid var(--border);
-	border-radius: 0.7rem;
-	background: var(--surface);
+	display: grid;
+	grid-template-columns: repeat(3, 2.75rem);
 }
 
 .theme-switch button {
 	display: grid;
 	place-items: center;
-	width: 2.25rem;
-	height: 2.25rem;
+	min-height: 2.75rem;
 	padding: 0;
-	border: 1px solid transparent;
-	border-radius: 0.5rem;
+	border: 0;
+	border-radius: 0;
 	background: transparent;
 	color: var(--muted);
 	cursor: pointer;
 }
 
-.theme-switch button:hover {
-	color: var(--text);
+.theme-switch button + button {
+	border-left: 1px solid var(--border);
 }
 
+.theme-switch button:hover,
 .theme-switch button[aria-pressed='true'] {
-	border-color: var(--border);
-	background: var(--background);
+	background: var(--nav-active);
 	color: var(--text);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
 .theme-switch button:focus-visible {
 	outline: 2px solid var(--focus);
-	outline-offset: 1px;
+	outline-offset: -3px;
 }
 
 .theme-switch svg {
@@ -1338,7 +1338,7 @@ main:has(> .section:last-child > :is(.portfolio-grid, .post-list)) + .site-foote
 	.main-nav a {
 		flex: 1;
 		justify-content: center;
-		min-height: 3.5rem;
+		min-height: 2.8rem;
 		padding-inline: var(--space-2);
 	}
 
@@ -1523,20 +1523,104 @@ main:has(> .section:last-child > :is(.portfolio-grid, .post-list)) + .site-foote
 	}
 }
 
+.palette-control {
+	position: relative;
+	align-self: stretch;
+	flex: 1;
+	width: 10rem;
+	min-width: 0;
+	max-width: 10rem;
+	font-size: 0.92rem;
+}
+
 .palette-switch {
-	margin-left: var(--space-3);
-	max-width: 8rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	height: 100%;
 	min-height: 2.75rem;
+	padding-inline: var(--space-3);
+	color: var(--text);
+	font-weight: 600;
+	list-style: none;
+	cursor: pointer;
+}
+
+.palette-switch::-webkit-details-marker {
+	display: none;
+}
+
+.palette-switch span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.palette-control svg {
+	width: 1rem;
+	height: 1rem;
+	flex-shrink: 0;
+	fill: currentColor;
+}
+
+.palette-control[open] > .palette-switch svg {
+	transform: rotate(180deg);
+}
+
+.palette-switch:hover,
+.palette-control[open] > .palette-switch {
+	background: var(--nav-active);
+}
+
+.palette-menu {
+	position: absolute;
+	top: calc(100% + 1px);
+	right: 0;
+	z-index: 100;
+	width: max(100%, 12rem);
+	max-height: min(28rem, 60dvh);
+	overflow-y: auto;
 	border: 1px solid var(--border);
-	border-radius: var(--radius);
-	padding: 0.4rem;
-	background: var(--surface);
+	background: var(--nav-background);
+	box-shadow: 0 8px 20px rgb(0 0 0 / 12%);
+}
+
+.palette-menu button {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	width: 100%;
+	min-height: 2.75rem;
+	padding: 0.65rem 1rem;
+	border: 0;
+	background: transparent;
 	color: var(--text);
 	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.palette-menu button + button {
+	border-top: 1px solid var(--border);
+}
+
+.palette-menu button:is(:hover, :focus-visible, [aria-pressed='true']) {
+	background: var(--nav-active);
+}
+
+.palette-menu button:focus-visible {
+	outline-offset: -3px;
+}
+
+.palette-menu button[aria-pressed='false'] svg {
+	visibility: hidden;
 }
 
 @media (max-width: 38rem) {
 	.header-inner { grid-template-columns: minmax(0, 1fr); }
-	.brand { min-height: 3.5rem; border-right: 0; }
-	.header-controls { grid-row: 3; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; border-left: 0; border-top: 1px solid var(--border); padding-block: 0.5rem; }
+	.brand { min-height: 2.8rem; border-right: 0; }
+	.header-controls { grid-row: 3; flex-wrap: wrap; min-height: 3.8rem; border-left: 0; border-top: 1px solid var(--border); }
+	.palette-menu { right: auto; left: 50%; transform: translateX(-50%); }
 }

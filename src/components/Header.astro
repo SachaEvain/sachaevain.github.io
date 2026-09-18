@@ -55,30 +55,41 @@ const isActive = (href: string): boolean =>
 				}
 			</div>
 
-			<select class="palette-switch" aria-label={locale === 'fr' ? 'Palette de couleurs' : 'Color palette'} data-palette-select>
-				{Object.entries(PALETTES).map(([value, palette]) => (
-					<option value={value} selected={value === SITE.palette}>{palette[locale]}</option>
-				))}
-			</select>
+			<details class="palette-control" data-palette-control>
+				<summary class="palette-switch" aria-label={locale === 'fr' ? 'Palette de couleurs' : 'Color palette'}>
+					<span data-palette-label>{PALETTES[SITE.palette][locale]}</span>
+					<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h3v3H2zm3 3h3v3H5zm3 0h3v3H8zm3-3h3v3h-3z" /></svg>
+				</summary>
+				<div class="palette-menu" role="group" aria-label={locale === 'fr' ? 'Palette de couleurs' : 'Color palette'}>
+					{Object.entries(PALETTES).map(([value, palette]) => (
+						<button type="button" data-palette-value={value} aria-pressed={value === SITE.palette}>
+							<span>{palette[locale]}</span>
+							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 7h3v3H1zm3 3h3v3H4zm3-3h3v3H7zm3-3h3v3h-3zm3-3h3v3h-3z" /></svg>
+						</button>
+					))}
+				</div>
+			</details>
 
-			<div class="theme-switch" role="group" aria-label={text.theme}>
-				<button type="button" data-theme-value="system" aria-label={text.themeSystem} title={text.themeSystem}>
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<rect x="3" y="4" width="18" height="13" rx="1"></rect>
-						<path d="M8 21h8M12 17v4"></path>
-					</svg>
-				</button>
-				<button type="button" data-theme-value="light" aria-label={text.themeLight} title={text.themeLight}>
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<circle cx="12" cy="12" r="4"></circle>
-						<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
-					</svg>
-				</button>
-				<button type="button" data-theme-value="dark" aria-label={text.themeDark} title={text.themeDark}>
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path d="M20.5 14.3A8.5 8.5 0 1 1 9.7 3.5a7 7 0 0 0 10.8 10.8Z"></path>
-					</svg>
-				</button>
+			<div class="theme-control">
+				<div class="theme-switch" role="group" aria-label={text.theme}>
+					<button type="button" data-theme-value="system" aria-label={text.themeSystem} title={text.themeSystem}>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="3" y="4" width="18" height="13" rx="1"></rect>
+							<path d="M8 21h8M12 17v4"></path>
+						</svg>
+					</button>
+					<button type="button" data-theme-value="light" aria-label={text.themeLight} title={text.themeLight}>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<circle cx="12" cy="12" r="4"></circle>
+							<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+						</svg>
+					</button>
+					<button type="button" data-theme-value="dark" aria-label={text.themeDark} title={text.themeDark}>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M20.5 14.3A8.5 8.5 0 1 1 9.7 3.5a7 7 0 0 0 10.8 10.8Z"></path>
+						</svg>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -86,19 +97,53 @@ const isActive = (href: string): boolean =>
 
 <script>
 	import logo from '../../public/logo.svg?raw';
-	const paletteSelect = document.querySelector<HTMLSelectElement>('[data-palette-select]')!;
+	const paletteControl = document.querySelector<HTMLDetailsElement>('[data-palette-control]')!;
+	const paletteTrigger = paletteControl.querySelector('summary')!;
+	const paletteLabel = paletteControl.querySelector<HTMLElement>('[data-palette-label]')!;
+	const paletteButtons = [...paletteControl.querySelectorAll<HTMLButtonElement>('[data-palette-value]')];
 	const updatePalette = (): void => {
+		paletteButtons.forEach((button) => {
+			const selected = button.dataset.paletteValue === document.documentElement.dataset.palette;
+			button.setAttribute('aria-pressed', String(selected));
+			if (selected) paletteLabel.textContent = button.textContent!.trim();
+		});
 		const styles = getComputedStyle(document.documentElement);
 		const colors = ['#9F281B', '#D93612', '#FA500E', '#FF7610', '#FF9614', '#FFBD2E'];
 		const svg = colors.reduce((source, color, index) => source.replaceAll(color, styles.getPropertyValue(`--pixel-${index}`).trim()), logo);
 		document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 		document.dispatchEvent(new Event('palettechange'));
 	};
-	paletteSelect.value = document.documentElement.dataset.palette!;
-	paletteSelect.addEventListener('change', () => {
-		document.documentElement.dataset.palette = paletteSelect.value;
-		localStorage.setItem('palette', paletteSelect.value);
-		updatePalette();
+	const closePalette = (): void => {
+		paletteControl.open = false;
+		paletteTrigger.focus();
+	};
+	paletteButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			document.documentElement.dataset.palette = button.dataset.paletteValue!;
+			localStorage.setItem('palette', button.dataset.paletteValue!);
+			updatePalette();
+			closePalette();
+		});
+	});
+	document.addEventListener('click', (event) => {
+		if (event.target instanceof Node && !paletteControl.contains(event.target)) paletteControl.open = false;
+	});
+	paletteControl.addEventListener('focusout', (event) => {
+		if (event.relatedTarget instanceof Node && !paletteControl.contains(event.relatedTarget)) paletteControl.open = false;
+	});
+	paletteControl.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && paletteControl.open) {
+			event.preventDefault();
+			closePalette();
+		}
+		if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+		event.preventDefault();
+		paletteControl.open = true;
+		const index = paletteButtons.findIndex((button) => button === document.activeElement);
+		const next = event.key === 'Home' ? 0 : event.key === 'End' ? paletteButtons.length - 1
+			: index < 0 ? (event.key === 'ArrowDown' ? 0 : paletteButtons.length - 1)
+			: (index + (event.key === 'ArrowDown' ? 1 : -1) + paletteButtons.length) % paletteButtons.length;
+		paletteButtons[next].focus();
 	});
 	updatePalette();
 
