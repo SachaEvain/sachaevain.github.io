@@ -96,7 +96,6 @@ const isActive = (href: string): boolean =>
 </header>
 
 <script>
-	import logo from '../../public/logo.svg?raw';
 	const paletteControl = document.querySelector<HTMLDetailsElement>('[data-palette-control]')!;
 	const paletteTrigger = paletteControl.querySelector('summary')!;
 	const paletteLabel = paletteControl.querySelector<HTMLElement>('[data-palette-label]')!;
@@ -107,10 +106,6 @@ const isActive = (href: string): boolean =>
 			button.setAttribute('aria-pressed', String(selected));
 			if (selected) paletteLabel.textContent = button.textContent!.trim();
 		});
-		const styles = getComputedStyle(document.documentElement);
-		const colors = ['#9F281B', '#D93612', '#FA500E', '#FF7610', '#FF9614', '#FFBD2E'];
-		const svg = colors.reduce((source, color, index) => source.replaceAll(color, styles.getPropertyValue(`--pixel-${index}`).trim()), logo);
-		document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 		document.dispatchEvent(new Event('palettechange'));
 	};
 	const closePalette = (): void => {
